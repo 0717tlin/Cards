@@ -1,0 +1,23 @@
+{
+  "name": "card-game",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A Pokemon TCG Pocket-style full-stack web game (original theme).",
+  "workspaces": [
+    "packages/engine",
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:frontend": "npm run dev --workspace @card-game/frontend",
+    "dev:backend": "npm run dev --workspace @card-game/backend"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
