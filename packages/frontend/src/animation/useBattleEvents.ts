@@ -41,6 +41,7 @@ export interface KoGhost {
 }
 
 export interface BattleEffects {
+  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number } | null;
   turnBanner: { player: PlayerId; key: number } | null;
   /** Attacker currently lunging. */
   lungeUid: string | null;
@@ -64,6 +65,7 @@ export interface BattleEffects {
 }
 
 const NONE: BattleEffects = {
+  coin: null,
   turnBanner: null,
   lungeUid: null,
   hit: null,
@@ -97,6 +99,9 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
   for (const entry of timeline) {
     const ev = entry.event;
     switch (ev.kind) {
+      case "coinFlipped":
+        if (active(entry)) fx.coin = { result: ev.result, flip: ev.flip, bonus: ev.bonus, key: entry.index };
+        break;
       case "turnStarted":
         if (active(entry)) fx.turnBanner = { player: ev.player, key: entry.index };
         break;
@@ -108,6 +113,9 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
           fx.hit = { uid: ev.uid, amount: ev.amount, weakness: ev.weakness, key: entry.index };
         }
         if (pending(entry)) fx.pendingDamage[ev.uid] = (fx.pendingDamage[ev.uid] ?? 0) + ev.amount;
+        break;
+      case "healed":
+        if (pending(entry)) fx.pendingDamage[ev.uid] = (fx.pendingDamage[ev.uid] ?? 0) - ev.amount;
         break;
       case "knockedOut": {
         const attacker = opponentOf(ev.player);

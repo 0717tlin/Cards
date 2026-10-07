@@ -4,13 +4,16 @@ This game is an original, TCG-Pocket-style card battler. Names, art, and creatur
 
 ## Core terms
 
-- **Creature card** — a card representing a fightable unit. Has HP, a type, one or more attacks, a retreat cost, and an optional weakness.
+- **Mon** (plural: **mons**) — the player-facing name for a fightable unit and its card. Has HP, a type, one or more attacks, a retreat cost, and an optional weakness. Existing engine types such as `CreatureCard` keep their names.
 - **Active** — the one creature currently in the fighting slot for a player.
 - **Bench** — up to 3 additional creatures a player controls, not currently fighting.
 - **Energy** — a resource attached to creatures to pay for attacks. Generated once per turn from the energy zone (there are no energy cards).
 - **Energy Zone** — produces one energy per turn that the player may attach to one of their creatures.
 - **Hand** — cards a player is holding, not yet in play.
 - **Deck** — a player's 20-card library.
+- **Item** — a one-use card played from hand and discarded after resolving. Any number may be played during your turn.
+- **Supporter** — a one-use card played from hand and discarded after resolving. Only one Supporter may be played per turn.
+- **Footwork Drill** — an Item that reduces the active mon's retreat cost by one energy for this turn. Multiple copies stack, with a minimum cost of zero.
 
 ## Turn flow (per player turn)
 

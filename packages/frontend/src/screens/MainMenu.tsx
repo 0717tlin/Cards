@@ -1,5 +1,5 @@
 import { motion, type Variants } from "motion/react";
-import { CARD_POOL, DECK_PLAYER, type CreatureCard } from "@card-game/engine";
+import { CARD_POOL, ALL_CARD_POOL, DECK_PLAYER, type CreatureCard } from "@card-game/engine";
 import { Card } from "../cards/Card";
 import { useAppView } from "../navigation/useAppView";
 import { useBattleStore } from "../store/battleStore";
@@ -7,7 +7,7 @@ import { useDeckBuilder } from "../deck/useDeckBuilder";
 
 /** Decorative fan of cards shown behind the title. */
 const FAN: CreatureCard[] = [CARD_POOL.glacierjaw!, CARD_POOL.verdantia!, CARD_POOL.cinderhorn!];
-const CARD_COUNT = Object.keys(CARD_POOL).length;
+const CARD_COUNT = Object.keys(ALL_CARD_POOL).length;
 
 // Staggered entrance: fan cards deal in, then title, then the buttons.
 const container: Variants = {

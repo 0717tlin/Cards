@@ -13,13 +13,21 @@ export type EnergyType =
 
 export type Stage = "basic" | "stage1" | "stage2";
 
+export type AttackEffect = {
+  kind: "damagePerAttachedEnergy";
+  energy: EnergyType;
+  amount: number;
+} | { kind: "flipUntilTails"; amount: number };
+
 export interface AttackDef {
   id: string;
   name: string;
   /** Multiset of required energy. "colorless" is satisfied by any energy type. */
   cost: EnergyType[];
   damage: number;
-  /** Optional rules text. Display only this milestone (effects not resolved). */
+  /** Structured effects resolved by the engine, never inferred from rules text. */
+  effects?: AttackEffect[];
+  /** Player-facing description of the attack. */
   text?: string;
 }
 
@@ -30,6 +38,7 @@ export interface AbilityDef {
 }
 
 export interface CreatureCard {
+  kind?: "mon";
   /** Definition id, e.g. "emberpup". Not unique per battle instance. */
   id: string;
   name: string;
@@ -50,6 +59,25 @@ export interface CreatureCard {
   art?: string;
 }
 
+export type TrainerEffect =
+  | { kind: "heal"; amount: number; target: "anyOwn" | "active" }
+  | { kind: "draw"; count: number }
+  | { kind: "reduceRetreat"; amount: number };
+
+export interface TrainerCard {
+  id: string;
+  name: string;
+  kind: "item" | "supporter";
+  text: string;
+  effect: TrainerEffect;
+  art?: string;
+}
+
+export type CardDefinition = CreatureCard | TrainerCard;
+export function isCreatureCard(card: CardDefinition): card is CreatureCard {
+  return card.kind !== "item" && card.kind !== "supporter";
+}
+
 export interface CreatureInPlay {
   /** Unique per instance within a single battle. */
   uid: string;
@@ -62,13 +90,14 @@ export interface CreatureInPlay {
 /** An entry in a player's discard pile: a knocked-out creature or spent energy. */
 export type DiscardEntry =
   | { kind: "creature"; card: CreatureCard }
+  | { kind: "trainer"; card: TrainerCard }
   | { kind: "energy"; energy: EnergyType };
 
 export interface PlayerState {
   id: PlayerId;
   /** Remaining library; index 0 is the top of the deck. */
-  deck: CreatureCard[];
-  hand: CreatureCard[];
+  deck: CardDefinition[];
+  hand: CardDefinition[];
   active: CreatureInPlay | null;
   /** Max length 3. */
   bench: CreatureInPlay[];
@@ -82,6 +111,8 @@ export interface PlayerState {
   // Transient per-turn flags, reset at beginTurn.
   hasAttachedEnergy: boolean;
   hasRetreated: boolean;
+  hasPlayedSupporter: boolean;
+  retreatReduction: number;
 }
 
 export type Phase =
@@ -95,6 +126,9 @@ export type Phase =
  * the actor, or the owner of the affected creature.
  */
 export type BattleEvent =
+  | { kind: "trainerPlayed"; player: PlayerId; card: TrainerCard }
+  | { kind: "healed"; player: PlayerId; uid: string; amount: number }
+  | { kind: "retreatCostReduced"; player: PlayerId; amount: number }
   | { kind: "battleStarted"; firstPlayer: PlayerId }
   | { kind: "turnStarted"; player: PlayerId; turnNumber: number }
   | { kind: "energyGenerated"; player: PlayerId; energy: EnergyType }
@@ -104,6 +138,7 @@ export type BattleEvent =
   | { kind: "retreated"; player: PlayerId; outUid: string; inUid: string; paid: EnergyType[] }
   | { kind: "promoted"; player: PlayerId; uid: string }
   | { kind: "attackUsed"; player: PlayerId; attackerUid: string; attackId: string; targetUid: string }
+  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number }
   | { kind: "damageDealt"; player: PlayerId; uid: string; amount: number; weakness: boolean }
   | { kind: "knockedOut"; player: PlayerId; creature: CreatureInPlay; pointsAwarded: number }
   | { kind: "energyDiscarded"; player: PlayerId; energy: EnergyType }
@@ -124,6 +159,7 @@ export interface BattleState {
 }
 
 export type Move =
+  | { type: "playTrainer"; handIndex: number; targetUid?: string }
   | { type: "attachEnergy"; targetUid: string }
   | { type: "playBasic"; handIndex: number }
   | { type: "retreat"; benchIndex: number }
@@ -133,8 +169,8 @@ export type Move =
 
 export interface BattleConfig {
   seed: number;
-  deckP1: CreatureCard[];
-  deckP2: CreatureCard[];
+  deckP1: CardDefinition[];
+  deckP2: CardDefinition[];
   energyTypeP1: EnergyType;
   energyTypeP2: EnergyType;
 }

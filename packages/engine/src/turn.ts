@@ -44,6 +44,8 @@ export function beginTurn(state: BattleState): BattleState {
   const player = next.players[next.turnPlayer];
   player.hasAttachedEnergy = false;
   player.hasRetreated = false;
+  player.hasPlayedSupporter = false;
+  player.retreatReduction = 0;
   player.pendingEnergy = null;
 
   const isFirstTurnOfGame = next.turnNumber === 1;
@@ -80,6 +82,7 @@ export function endTurn(state: BattleState): BattleState {
     next.events.push({ kind: "energyDiscarded", player: current.id, energy: current.pendingEnergy });
     current.pendingEnergy = null;
   }
+  current.retreatReduction = 0;
   const nextPlayer: PlayerId = opponentOf(next.turnPlayer);
   next.turnPlayer = nextPlayer;
   return beginTurn(next);

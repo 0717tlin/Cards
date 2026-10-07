@@ -3,6 +3,8 @@
 
 import type { BattleState, Move } from "./types.js";
 import { getLegalMoves } from "./moves.js";
+import { computeDamage } from "./combat.js";
+import { opponentOf } from "./types.js";
 
 /** Pick a single move for the acting player using a simple heuristic. */
 export function chooseMove(state: BattleState): Move {
@@ -16,6 +18,9 @@ export function chooseMove(state: BattleState): Move {
   if (promotes.length > 0) {
     return bestPromote(state, promotes);
   }
+
+  const trainers = legal.filter((move) => move.type === "playTrainer");
+  if (trainers.length > 0) return trainers[0]!;
 
   // 2. Fill the bench: playing Basics gives a creature to promote after a KO,
   //    which avoids losing the instant the active is knocked out.
@@ -70,7 +75,8 @@ function bestAttack(state: BattleState, attacks: Move[]): Move {
   for (const m of attacks) {
     if (m.type !== "attack") continue;
     const def = active.card.attacks.find((a) => a.id === m.attackId);
-    const dmg = def ? def.damage : -1;
+    const defender = state.players[opponentOf(state.turnPlayer)].active;
+    const dmg = def && defender ? computeDamage(active, defender, def) : -1;
     if (dmg > bestDamage) {
       bestDamage = dmg;
       best = m;

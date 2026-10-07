@@ -30,14 +30,24 @@ export function isWeakTo(attacker: CreatureInPlay, defender: CreatureInPlay): bo
   return defender.card.weakness === attacker.card.type;
 }
 
-/** Damage dealt by `attack` from `attacker` to `defender`, including weakness. */
+/** Damage including weakness; random effects use expected damage for AI evaluation.
+ * applyAttack replaces that expectation with seeded coin-flip results. */
 export function computeDamage(
   attacker: CreatureInPlay,
   defender: CreatureInPlay,
   attack: AttackDef
 ): number {
   const weaknessBonus = isWeakTo(attacker, defender) ? WEAKNESS_BONUS : 0;
-  return attack.damage + weaknessBonus;
+  const effectDamage = (attack.effects ?? []).reduce((bonus, effect) => {
+    switch (effect.kind) {
+      case "damagePerAttachedEnergy":
+        return bonus + attacker.attached.filter((energy) => energy === effect.energy).length * effect.amount;
+      case "flipUntilTails":
+        // Expected heads before tails is one; AI evaluates the expected bonus.
+        return bonus + effect.amount;
+    }
+  }, 0);
+  return attack.damage + effectDamage + weaknessBonus;
 }
 
 /** True if the creature's accumulated damage meets or exceeds its HP. */

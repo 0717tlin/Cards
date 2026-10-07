@@ -1,11 +1,13 @@
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { CARD_POOL, type CreatureCard } from "@card-game/engine";
+import { ALL_CARD_POOL as CARD_POOL, isCreatureCard, type CardDefinition } from "@card-game/engine";
 import { Card, Pop } from "../cards/Card";
+import { CardZoom } from "../cards/CardZoom";
 import { useDeckBuilder, DECK_SIZE, COPY_LIMIT } from "../deck/useDeckBuilder";
 import { useBattleStore } from "../store/battleStore";
 import { useAppView } from "../navigation/useAppView";
 
-const ALL_CARDS: CreatureCard[] = Object.values(CARD_POOL);
+const ALL_CARDS: CardDefinition[] = Object.values(CARD_POOL);
 
 export function DeckBuilder() {
   const selection = useDeckBuilder((s) => s.selection);
@@ -17,6 +19,16 @@ export function DeckBuilder() {
 
   const newGame = useBattleStore((s) => s.newGame);
   const setView = useAppView((s) => s.setView);
+
+  const [zoomed, setZoomed] = useState<CardDefinition | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const held = useRef(false);
+  const holdOrigin = useRef<{ x: number; y: number } | null>(null);
+  function cancelHold() {
+    if (holdTimer.current !== null) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  }
+  useEffect(() => () => cancelHold(), []);
 
   const selectedEntries = Object.entries(selection);
 
@@ -55,11 +67,13 @@ export function DeckBuilder() {
 
       <div className="builder">
         <section className="builder__pool">
-          <div className="slot-label">Card pool — click to add (max {COPY_LIMIT} each)</div>
+          <div className="slot-label">
+            Click to add (max {COPY_LIMIT} each) · right-click to remove · hold to enlarge
+          </div>
           <div className="card-grid card-grid--sm">
             {ALL_CARDS.map((c, i) => {
               const count = selection[c.id] ?? 0;
-              const isBasic = c.stage === "basic";
+              const isBasic = isCreatureCard(c) && c.stage === "basic";
               return (
                 <motion.div
                   key={c.id}
@@ -67,11 +81,30 @@ export function DeckBuilder() {
                   initial={{ opacity: 0, y: 14 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03, type: "spring", stiffness: 300, damping: 26 }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    cancelHold();
+                    remove(c.id);
+                  }}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    cancelHold();
+                    held.current = false;
+                    holdOrigin.current = { x: e.clientX, y: e.clientY };
+                    holdTimer.current = setTimeout(() => { held.current = true; setZoomed(c); }, 500);
+                  }}
+                  onPointerUp={cancelHold}
+                  onPointerLeave={cancelHold}
+                  onPointerCancel={cancelHold}
+                  onPointerMove={(e) => {
+                    const origin = holdOrigin.current;
+                    if (origin && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) > 10) cancelHold();
+                  }}
                 >
-                  <Card card={c} size="sm" onClick={() => add(c.id)} />
+                  <Card card={c} size="sm" onClick={() => { if (held.current) { held.current = false; return; } add(c.id); }} />
                   <div className="pool-card__meta">
-                    <span className={isBasic ? "muted small" : "warn small"}>
-                      {isBasic ? "basic" : `${c.stage} · not battle-legal yet`}
+                    <span className={isBasic || !isCreatureCard(c) ? "muted small" : "warn small"}>
+                      {isCreatureCard(c) ? (isBasic ? "basic" : `${c.stage} · not battle-legal yet`) : c.kind}
                     </span>
                     {count > 0 && (
                       <Pop value={count} className="count-badge">
@@ -98,6 +131,7 @@ export function DeckBuilder() {
                   animate={{ opacity: 1, height: "auto", x: 0 }}
                   exit={{ opacity: 0, height: 0, x: 12 }}
                   transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  onContextMenu={(e) => { e.preventDefault(); cancelHold(); remove(id); }}
                 >
                   <span>
                     {CARD_POOL[id]?.name ?? id} <Pop value={count}>×{count}</Pop>
@@ -111,6 +145,8 @@ export function DeckBuilder() {
           </ul>
         </aside>
       </div>
+
+      <CardZoom card={zoomed} onClose={() => setZoomed(null)} />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 // Deck builder state (first version). Holds a selection of card ids -> count,
-// validates against deck rules, and expands into a CreatureCard[] for battle.
+// validates against deck rules, and expands into a CardDefinition[] for battle.
 
 import { create } from "zustand";
-import { CARD_POOL, type CreatureCard } from "@card-game/engine";
+import { ALL_CARD_POOL as CARD_POOL, isCreatureCard, type CardDefinition } from "@card-game/engine";
 
 export const DECK_SIZE = 20;
 export const COPY_LIMIT = 2;
@@ -20,12 +20,12 @@ interface DeckBuilderStore {
   remove: (cardId: string) => void;
   clear: () => void;
   validation: () => DeckValidation;
-  build: () => CreatureCard[] | null;
+  build: () => CardDefinition[] | null;
 }
 
-function isBattleLegalCard(card: CreatureCard): boolean {
+function isBattleLegalCard(card: CardDefinition): boolean {
   // Only Basics are playable in battle this milestone (evolution deferred).
-  return card.stage === "basic";
+  return isCreatureCard(card) && card.stage === "basic";
 }
 
 export const useDeckBuilder = create<DeckBuilderStore>((set, get) => ({
@@ -69,14 +69,14 @@ export const useDeckBuilder = create<DeckBuilderStore>((set, get) => ({
       const c = CARD_POOL[id];
       return c ? isBattleLegalCard(c) : false;
     });
-    if (!hasBasic) issues.push("Deck must include at least one Basic creature.");
+    if (!hasBasic) issues.push("Deck must include at least one Basic mon.");
 
     return { total, legal: issues.length === 0, issues };
   },
 
   build: () => {
     if (!get().validation().legal) return null;
-    const cards: CreatureCard[] = [];
+    const cards: CardDefinition[] = [];
     for (const [id, count] of Object.entries(get().selection)) {
       const card = CARD_POOL[id];
       if (!card) continue;

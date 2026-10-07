@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import type { CreatureCard, EnergyType, Stage } from "@card-game/engine";
+import { isCreatureCard, type CreatureCard, type TrainerCard, type CardDefinition, type EnergyType, type Stage } from "@card-game/engine";
 import { ENERGY_COLOR, ENERGY_SYMBOL, resolveArt } from "./cardArt";
 
 const STAGE_LABEL: Record<Stage, string> = {
@@ -27,13 +27,19 @@ function useFitText(text: string): {
     if (!el || !parent) return;
     // Measure at full size (1em) without disturbing React's applied style,
     // then compute the largest scale that fits the available column width.
-    const prev = el.style.fontSize;
-    el.style.fontSize = "1em";
-    const available = parent.clientWidth;
-    const needed = el.scrollWidth;
-    el.style.fontSize = prev;
-    const next = needed > available && available > 0 ? Math.max(0.6, available / needed) : 1;
-    setScale(next);
+    function measure() {
+      if (!el) return;
+      const prev = el.style.fontSize;
+      el.style.fontSize = "1em";
+      const available = el.clientWidth;
+      const needed = el.scrollWidth;
+      el.style.fontSize = prev;
+      setScale(needed > available && available > 0 ? Math.max(0.6, available / needed) : 1);
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    return () => observer.disconnect();
   }, [text]);
 
   return { ref, scale };
@@ -88,7 +94,7 @@ export function Pop({
 }
 
 export interface CardProps {
-  card: CreatureCard;
+  card: CardDefinition;
   size?: "sm" | "md" | "lg";
   /** Battle overlays. */
   damage?: number;
@@ -104,9 +110,33 @@ export interface CardProps {
    * matches the energy-zone pip's id, Motion flies the pip onto this card.
    */
   flyLayoutId?: string;
+  /** Battle board renders energy in a readable tray below the card. */
+  energyPlacement?: "art" | "tray";
 }
 
-export function Card({
+export function Card({ card, ...props }: CardProps) {
+  return isCreatureCard(card) ? <CreatureCardView card={card} {...props} /> : <TrainerCardView card={card} {...props} />;
+}
+
+function TrainerCardView({ card, size = "md", onClick }: Omit<CardProps, "card"> & { card: TrainerCard }) {
+  const nameFit = useFitText(card.name);
+  const accent = card.kind === "item" ? "#67cbb8" : "#b298e8";
+  const glyph = card.id === "bandages" ? "🩹" : card.id === "footwork-drill" ? "🥊" : card.id === "cutman" ? "✚" : "🎟️";
+  return <div className={`card card--${size} card--trainer${onClick ? " card--clickable" : ""}`}
+    style={{ ["--accent-type" as string]: accent }} role={onClick ? "button" : undefined}
+    tabIndex={onClick ? 0 : undefined} aria-label={onClick ? `View ${card.name}` : undefined} onClick={onClick}
+    onKeyDown={onClick ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } } : undefined}>
+    <div className="card__header"><span className="card__stage">{card.kind}</span>
+      <span ref={nameFit.ref} className="card__name" style={{fontSize: `${nameFit.scale}em`}}>{card.name}</span></div>
+    <div className="card__art" style={{background: `linear-gradient(135deg, ${accent}, #edf6ff)`}}>
+      <span className="card__art-glyph">{glyph}</span><span className="card__art-name">{card.name}</span>
+    </div>
+    <div className="card__details"><p className="trainer-rules">{card.text}</p></div>
+    <div className="card__footer trainer-limit">{card.kind === "item" ? "Play any number of Items during your turn." : "Play only 1 Supporter during your turn."}</div>
+  </div>;
+}
+
+function CreatureCardView({
   card,
   size = "md",
   damage,
@@ -116,7 +146,8 @@ export function Card({
   usableAttackIds,
   onAttack,
   flyLayoutId,
-}: CardProps) {
+  energyPlacement = "art",
+}: Omit<CardProps, "card"> & { card: CreatureCard }) {
   const art = resolveArt(card.art, card.type);
   const remaining = damage != null ? Math.max(0, card.hp - damage) : null;
   const clickable = !!onClick;
@@ -125,11 +156,18 @@ export function Card({
 
   return (
     <div
-      className={`card card--${size}${highlight ? " card--highlight" : ""}${clickable ? " card--clickable" : ""}`}
+      className={`card card--${size}${highlight ? " card--highlight" : ""}${clickable ? " card--clickable" : ""}${energyPlacement === "tray" ? " card--energy-tray" : ""}`}
       style={{ ["--accent-type" as string]: accent }}
       onClick={onClick}
       role={clickable ? "button" : undefined}
+      aria-label={clickable ? `View ${card.name}` : undefined}
       tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      } : undefined}
     >
       <div className="card__header">
         <span className="card__stage">{STAGE_LABEL[card.stage]}</span>
@@ -165,7 +203,7 @@ export function Card({
             <span className="card__art-name">{card.name}</span>
           </>
         )}
-        {attached && attached.length > 0 && (
+        {energyPlacement === "art" && attached && attached.length > 0 && (
           <div className="card__attached">
             {attached.map((e, i) =>
               flyLayoutId && i === attached.length - 1 ? (
@@ -180,6 +218,23 @@ export function Card({
         )}
       </div>
 
+      {energyPlacement === "tray" && (
+        <div className="energy-tray" aria-label={`${attached?.length ?? 0} attached energy`}>
+          {attached?.length ? Object.entries(attached.reduce<Partial<Record<EnergyType, number>>>((counts, type) => {
+            counts[type] = (counts[type] ?? 0) + 1;
+            return counts;
+          }, {})).map(([type, count]) => (
+            <span className="energy-tray__group" key={type} title={`${count} ${type} energy`}>
+              <motion.span layoutId={flyLayoutId && type === attached[attached.length - 1] ? flyLayoutId : undefined}>
+                <EnergyPip type={type as EnergyType} em={1.5} />
+              </motion.span>
+              <strong>{count}</strong>
+            </span>
+          )) : <span className="energy-tray__empty">No energy</span>}
+        </div>
+      )}
+
+      <div className="card__details">
       {card.ability && (
         <div className="card__ability">
           <span className="card__ability-label">Ability</span>
@@ -223,11 +278,12 @@ export function Card({
               ))}
             </span>
             <span className="attack__name">{atk.name}</span>
-            <span className="attack__dmg">{atk.damage > 0 ? atk.damage : ""}</span>
+            <span className="attack__dmg">{atk.damage > 0 ? `${atk.damage}${atk.effects?.length ? "+" : ""}` : ""}</span>
             {atk.text && <p className="attack__text">{atk.text}</p>}
           </div>
           );
         })}
+      </div>
       </div>
 
       <div className="card__footer">

@@ -10,6 +10,7 @@
 import { create } from "zustand";
 import {
   createBattle,
+  isCreatureCard,
   getLegalMoves,
   applyMove,
   actingPlayer,
@@ -21,7 +22,7 @@ import {
   type BattleState,
   type Move,
   type PlayerId,
-  type CreatureCard,
+  type CardDefinition,
   type EnergyType,
 } from "@card-game/engine";
 import { aiThinkTime, animationTime } from "../animation/timing";
@@ -33,7 +34,7 @@ const AI: PlayerId = "P2";
 function inferEnergyType(deck: BattleState["players"]["P1"]["deck"]): EnergyType {
   const counts = new Map<EnergyType, number>();
   for (const card of deck) {
-    if (card.type === "colorless") continue;
+    if (!isCreatureCard(card) || card.type === "colorless") continue;
     counts.set(card.type, (counts.get(card.type) ?? 0) + 1);
   }
   let best: EnergyType = PLAYER_ENERGY;
@@ -47,7 +48,7 @@ function inferEnergyType(deck: BattleState["players"]["P1"]["deck"]): EnergyType
   return best;
 }
 
-function makeBattle(seed: number, humanDeck?: CreatureCard[]): BattleState {
+function makeBattle(seed: number, humanDeck?: CardDefinition[]): BattleState {
   const deckP1 = humanDeck ?? DECK_PLAYER;
   return createBattle({
     seed,
@@ -76,8 +77,8 @@ interface BattleStore {
   /** Incremented by newGame; stale timers compare against it and do nothing. */
   gameId: number;
   /** The human deck last used to start a battle; null = default deck. */
-  humanDeck: CreatureCard[] | null;
-  newGame: (opts?: { humanDeck?: CreatureCard[]; seed?: number }) => void;
+  humanDeck: CardDefinition[] | null;
+  newGame: (opts?: { humanDeck?: CardDefinition[]; seed?: number }) => void;
   dispatch: (move: Move) => void;
 }
 

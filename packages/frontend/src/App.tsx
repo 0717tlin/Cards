@@ -41,7 +41,7 @@ export function App() {
   return (
     // reducedMotion="user": honour the OS "reduce motion" setting everywhere.
     <MotionConfig reducedMotion="user">
-      <div className="app">
+      <div className={`app${view === "battle" ? " app--battle" : ""}`}>
         <div className="phone">
           <AnimatePresence mode="wait" initial={false}>
             {view === "menu" ? (
@@ -55,7 +55,7 @@ export function App() {
                   <span className="topbar__title">{TITLES[view]}</span>
                 </header>
 
-                <main className="app__main">
+                <main className={`app__main${view === "battle" ? " app__main--battle" : ""}`}>
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div key={view} className="screen-wrap" {...screenMotion}>
                       <Screen view={view} />

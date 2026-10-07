@@ -1,7 +1,7 @@
 // Original creature pool and two fixed decks. All names/creatures are original
 // placeholders — no real Pokemon IP. Basic creatures only this milestone.
 
-import type { CreatureCard } from "./types.js";
+import type { CreatureCard, TrainerCard, CardDefinition } from "./types.js";
 import type { EnergyType } from "./types.js";
 
 /**
@@ -15,6 +15,55 @@ function creature(c: Omit<CreatureCard, "stage" | "art"> & Partial<Pick<Creature
 // --- Card pool -------------------------------------------------------------
 
 export const CARD_POOL: Record<string, CreatureCard> = {
+  merab: creature({
+    id: "merab", name: "Merab", type: "colorless", hp: 80,
+    weakness: "fighting", isEx: false, retreatCost: 1,
+    attacks: [{ id: "single-leg", name: "Single leg", cost: ["colorless"], damage: 20 }],
+  }),
+  "anshul-jubli": creature({
+    id: "anshul-jubli", name: "Anshul Jubli", type: "grass", hp: 60,
+    weakness: "fire", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "lion-jab", name: "Lion Jab", cost: ["colorless"], damage: 10 },
+      { id: "do-not-redeem", name: "DO NOT REDEEM!!!", cost: ["colorless", "colorless"], damage: 20 },
+    ],
+  }),
+  "tommy-mcmillan": creature({
+    id: "tommy-mcmillan", name: "Tommy mcmillan", type: "colorless", hp: 80,
+    weakness: "fighting", isEx: false, retreatCost: 1,
+    attacks: [{ id: "blitz", name: "Blitz", cost: ["colorless"], damage: 10,
+      effects: [{ kind: "flipUntilTails", amount: 10 }],
+      text: "Flip a coin until you get tails. This attack does 10 more damage for each heads.",
+    }],
+  }),
+  "cm-punk": creature({
+    id: "cm-punk", name: "CM Punk", type: "colorless", hp: 50,
+    weakness: "fighting", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "punk-jab", name: "Jab", cost: ["colorless"], damage: 10 },
+      { id: "go-to-sleep", name: "Go To Sleep", cost: ["colorless", "colorless", "colorless"], damage: 30 },
+    ],
+  }),
+  "ilia-topuria": creature({
+    id: "ilia-topuria",
+    name: "Ilia Topuria",
+    type: "fire",
+    hp: 120,
+    weakness: "water",
+    isEx: false,
+    retreatCost: 1,
+    attacks: [
+      { id: "ilia-jab", name: "Jab", cost: ["fire"], damage: 20 },
+      {
+        id: "right-hook",
+        name: "Right Hook",
+        cost: ["colorless", "colorless"],
+        damage: 50,
+        effects: [{ kind: "damagePerAttachedEnergy", energy: "fire", amount: 10 }],
+        text: "This attack does 10 more damage for each Fire Energy attached to this mon.",
+      },
+    ],
+  }),
   emberpup: creature({
     id: "emberpup",
     name: "Emberpup",
@@ -116,7 +165,6 @@ export const CARD_POOL: Record<string, CreatureCard> = {
     retreatCost: 2,
     attacks: [
       { id: "jab", name: "Jab", cost: ["fighting"], damage: 20 },
-      { id: "quake-punch", name: "Quake Punch", cost: ["fighting", "colorless"], damage: 50 },
     ],
   }),
 
@@ -164,6 +212,15 @@ export const CARD_POOL: Record<string, CreatureCard> = {
     ],
   }),
 };
+
+export const TRAINER_POOL: Record<string, TrainerCard> = {
+  bandages: { id: "bandages", name: "Bandages", kind: "item", text: "Heal 20 damage from 1 of your mons.", effect: { kind: "heal", amount: 20, target: "anyOwn" } },
+  "footwork-drill": { id: "footwork-drill", name: "Footwork Drill", kind: "item", text: "During this turn, your active mon's Retreat Cost is 1 energy less.", effect: { kind: "reduceRetreat", amount: 1 } },
+  "dana-white": { id: "dana-white", name: "Dana White", kind: "supporter", text: "Draw 2 cards.", effect: { kind: "draw", count: 2 } },
+  cutman: { id: "cutman", name: "Cutman", kind: "supporter", text: "Heal 30 damage from your active mon.", effect: { kind: "heal", amount: 30, target: "active" } },
+};
+
+export const ALL_CARD_POOL: Record<string, CardDefinition> = { ...CARD_POOL, ...TRAINER_POOL };
 
 function repeat(card: CreatureCard, n: number): CreatureCard[] {
   return Array.from({ length: n }, () => card);

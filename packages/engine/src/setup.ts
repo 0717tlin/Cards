@@ -4,11 +4,12 @@ import type {
   BattleConfig,
   BattleState,
   CreatureCard,
+  CardDefinition,
   CreatureInPlay,
   PlayerId,
   PlayerState,
 } from "./types.js";
-import { HAND_SIZE } from "./types.js";
+import { HAND_SIZE, isCreatureCard } from "./types.js";
 import { nextInt, shuffle } from "./rng.js";
 import { beginTurn } from "./turn.js";
 
@@ -23,12 +24,12 @@ export function toInPlay(card: CreatureCard): CreatureInPlay {
   return { uid: makeUid(card.id), card, damage: 0, attached: [] };
 }
 
-function isBasic(card: CreatureCard): boolean {
-  return card.stage === "basic";
+function isBasic(card: CardDefinition): card is CreatureCard {
+  return isCreatureCard(card) && card.stage === "basic";
 }
 
 /** Draw `count` cards from the top of the deck, returning hand + remaining deck. */
-function draw(deck: CreatureCard[], count: number): { hand: CreatureCard[]; rest: CreatureCard[] } {
+function draw(deck: CardDefinition[], count: number): { hand: CardDefinition[]; rest: CardDefinition[] } {
   return { hand: deck.slice(0, count), rest: deck.slice(count) };
 }
 
@@ -38,8 +39,8 @@ function draw(deck: CreatureCard[], count: number): { hand: CreatureCard[]; rest
  */
 function openingHand(
   state: number,
-  deck: CreatureCard[]
-): { hand: CreatureCard[]; deck: CreatureCard[]; state: number } {
+  deck: CardDefinition[]
+): { hand: CardDefinition[]; deck: CardDefinition[]; state: number } {
   let s = state;
   // Bound the mulligan loop defensively; every deck here contains only Basics.
   for (let attempt = 0; attempt < 100; attempt++) {
@@ -55,13 +56,13 @@ function openingHand(
 
 function buildPlayer(
   id: PlayerId,
-  hand: CreatureCard[],
-  deck: CreatureCard[],
+  hand: CardDefinition[],
+  deck: CardDefinition[],
   energyType: PlayerState["energyType"]
 ): PlayerState {
   // Auto-place the first Basic as active; the rest stay in hand (bench filled during play).
   const activeIndex = hand.findIndex(isBasic);
-  const active = toInPlay(hand[activeIndex]!);
+  const active = toInPlay(hand.find(isBasic)!);
   const remainingHand = hand.filter((_, i) => i !== activeIndex);
   return {
     id,
@@ -75,6 +76,8 @@ function buildPlayer(
     points: 0,
     hasAttachedEnergy: false,
     hasRetreated: false,
+    hasPlayedSupporter: false,
+    retreatReduction: 0,
   };
 }
 
