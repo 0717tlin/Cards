@@ -6,6 +6,7 @@ import type { BattleEvent } from "@card-game/engine";
 
 export const EVENT_MS: Record<BattleEvent["kind"], number> = {
   trainerPlayed: 300,
+  abilityUsed: 300,
   healed: 350,
   retreatCostReduced: 250,
   battleStarted: 0,
@@ -13,11 +14,13 @@ export const EVENT_MS: Record<BattleEvent["kind"], number> = {
   energyGenerated: 250,
   cardDrawn: 300,
   energyAttached: 400,
-  creatureBenched: 350,
+  fighterBenched: 350,
   retreated: 450,
   promoted: 450,
   attackUsed: 350,
   coinFlipped: 1000,
+  evolved: 450,
+  damageReductionApplied: 300,
   damageDealt: 550,
   knockedOut: 650,
   energyDiscarded: 0,

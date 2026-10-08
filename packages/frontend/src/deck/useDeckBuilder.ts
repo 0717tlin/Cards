@@ -1,87 +1,32 @@
-// Deck builder state (first version). Holds a selection of card ids -> count,
-// validates against deck rules, and expands into a CardDefinition[] for battle.
-
 import { create } from "zustand";
-import { ALL_CARD_POOL as CARD_POOL, isCreatureCard, type CardDefinition } from "@card-game/engine";
-
-export const DECK_SIZE = 20;
-export const COPY_LIMIT = 2;
-
-export interface DeckValidation {
-  total: number;
-  legal: boolean;
-  issues: string[];
-}
-
+import { ALL_CARD_POOL, type CardDefinition, type EnergyType } from "@card-game/engine";
+import { buildDeck, validateDeck, DECK_SIZE, COPY_LIMIT, type SavedDeck, type DeckSelection } from "./useSavedDecks";
+export { DECK_SIZE, COPY_LIMIT } from "./useSavedDecks";
+export type DeckValidation = ReturnType<typeof validateDeck>;
 interface DeckBuilderStore {
-  /** card id -> count */
-  selection: Record<string, number>;
-  add: (cardId: string) => void;
-  remove: (cardId: string) => void;
-  clear: () => void;
-  validation: () => DeckValidation;
-  build: () => CardDefinition[] | null;
+ selection: DeckSelection;
+ editingId: string | null;
+ name: string;
+ energyTypes: EnergyType[];
+ toggleEnergy: (type: EnergyType) => void;
+ setName: (name: string) => void;
+ load: (deck: SavedDeck) => void;
+ newDeck: () => void;
+ add: (id: string) => void;
+ remove: (id: string) => void;
+ clear: () => void;
+ validation: () => DeckValidation;
+ build: () => CardDefinition[] | null;
 }
-
-function isBattleLegalCard(card: CardDefinition): boolean {
-  // Only Basics are playable in battle this milestone (evolution deferred).
-  return isCreatureCard(card) && card.stage === "basic";
-}
-
-export const useDeckBuilder = create<DeckBuilderStore>((set, get) => ({
-  selection: {},
-
-  add: (cardId) => {
-    const card = CARD_POOL[cardId];
-    if (!card) return;
-    const current = get().selection[cardId] ?? 0;
-    const total = Object.values(get().selection).reduce((a, b) => a + b, 0);
-    if (current >= COPY_LIMIT) return;
-    if (total >= DECK_SIZE) return;
-    set({ selection: { ...get().selection, [cardId]: current + 1 } });
-  },
-
-  remove: (cardId) => {
-    const current = get().selection[cardId] ?? 0;
-    if (current <= 0) return;
-    const next = { ...get().selection };
-    if (current === 1) delete next[cardId];
-    else next[cardId] = current - 1;
-    set({ selection: next });
-  },
-
-  clear: () => set({ selection: {} }),
-
-  validation: () => {
-    const selection = get().selection;
-    const total = Object.values(selection).reduce((a, b) => a + b, 0);
-    const issues: string[] = [];
-
-    if (total !== DECK_SIZE) issues.push(`Deck must have exactly ${DECK_SIZE} cards (currently ${total}).`);
-
-    for (const [id, count] of Object.entries(selection)) {
-      if (count > COPY_LIMIT) {
-        issues.push(`Too many copies of ${CARD_POOL[id]?.name ?? id} (max ${COPY_LIMIT}).`);
-      }
-    }
-
-    const hasBasic = Object.keys(selection).some((id) => {
-      const c = CARD_POOL[id];
-      return c ? isBattleLegalCard(c) : false;
-    });
-    if (!hasBasic) issues.push("Deck must include at least one Basic mon.");
-
-    return { total, legal: issues.length === 0, issues };
-  },
-
-  build: () => {
-    if (!get().validation().legal) return null;
-    const cards: CardDefinition[] = [];
-    for (const [id, count] of Object.entries(get().selection)) {
-      const card = CARD_POOL[id];
-      if (!card) continue;
-      for (let i = 0; i < count; i++) cards.push(card);
-    }
-    return cards;
-  },
+export const useDeckBuilder = create<DeckBuilderStore>((set,get)=>({
+ selection:{},editingId:null,name:"My Deck",energyTypes:["fire"],
+ toggleEnergy:type=>set({energyTypes:get().energyTypes.includes(type)?get().energyTypes.filter(t=>t!==type):[...get().energyTypes,type]}),
+ setName:name=>set({name}),
+ load:deck=>set({selection:{...deck.selection},editingId:deck.id,name:deck.name,energyTypes:[...deck.energyTypes]}),
+ newDeck:()=>set({selection:{},editingId:null,name:"My Deck",energyTypes:["fire"]}),
+ add:id=>{if(!ALL_CARD_POOL[id])return;const count=get().selection[id]??0;if(count>=COPY_LIMIT||Object.values(get().selection).reduce((a,b)=>a+b,0)>=DECK_SIZE)return;set({selection:{...get().selection,[id]:count+1}})},
+ remove:id=>{const count=get().selection[id]??0;if(!count)return;const selection={...get().selection};if(count===1)delete selection[id];else selection[id]=count-1;set({selection})},
+ clear:()=>set({selection:{}}),
+ validation:()=>validateDeck(get().selection),
+ build:()=>buildDeck(get().selection),
 }));

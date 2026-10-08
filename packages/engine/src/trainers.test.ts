@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createBattle, applyMove, getLegalMoves, getRetreatCost, chooseMove, CARD_POOL, TRAINER_POOL, isCreatureCard } from "./index.js";
+import { createBattle, applyMove, getLegalMoves, getRetreatCost, chooseMove, CARD_POOL, TRAINER_POOL, isFighterCard } from "./index.js";
 import type { BattleState, CardDefinition, Move } from "./types.js";
 function fixture(ids: string[]): BattleState {
-  const state = createBattle({seed: 15, deckP1: Array(20).fill(CARD_POOL.emberpup!), deckP2: Array(20).fill(CARD_POOL.tidefin!), energyTypeP1: "fire", energyTypeP2: "water"});
+  const state = createBattle({seed: 15, deckP1: Array(20).fill(CARD_POOL["paddy-pimblett"]!), deckP2: Array(20).fill(CARD_POOL["khabib-nurmagomedov"]!), energyTypeP1: "fire", energyTypeP2: "water"});
   state.turnPlayer = "P1";
   state.players.P1.hand = ids.map(id => TRAINER_POOL[id]!);
   state.players.P1.active!.damage = 45;
-  state.players.P1.bench = [{uid: "bench", card: CARD_POOL.cinderhorn!, damage: 70, attached: []}];
+  state.players.P1.bench = [{uid: "bench", card: CARD_POOL["islam-makhachev-ex"]!, damage: 70, attached: []}];
   return state;
 }
 function play(state: BattleState, name: string, targetUid?: string): BattleState {
@@ -61,7 +61,7 @@ describe("items and supporters", () => {
   });
   it("draws the remaining card without deck-out, but cannot draw from empty", () => {
     let state = fixture(["dana-white"]);
-    state.players.P1.deck = [CARD_POOL.emberpup!];
+    state.players.P1.deck = [CARD_POOL["paddy-pimblett"]!];
     state = play(state, "Dana White");
     expect(state.players.P1.deck).toHaveLength(0);
     expect(state.players.P1.hand).toHaveLength(1);
@@ -72,7 +72,7 @@ describe("items and supporters", () => {
   });
   it("stacks retreat reductions, caps at zero, and pays the discounted cost", () => {
     let state = fixture(["footwork-drill", "footwork-drill"]);
-    state.players.P1.active!.card = CARD_POOL.cinderhorn!;
+    state.players.P1.active!.card = CARD_POOL["islam-makhachev-ex"]!;
     expect(getRetreatCost(state.players.P1)).toBe(2);
     state = play(state, "Footwork Drill");
     expect(getRetreatCost(state.players.P1)).toBe(1);
@@ -100,9 +100,9 @@ describe("items and supporters", () => {
     expect(getLegalMoves(state)).toEqual([]);
   });
   it("sets up mixed decks with a Basic active and trainer cards in hand/library", () => {
-    const deck: CardDefinition[] = [CARD_POOL.emberpup!, ...Array(19).fill(TRAINER_POOL.bandages!)];
+    const deck: CardDefinition[] = [CARD_POOL["paddy-pimblett"]!, ...Array(19).fill(TRAINER_POOL.bandages!)];
     const state = createBattle({seed: 2, deckP1: deck, deckP2: deck, energyTypeP1: "fire", energyTypeP2: "fire"});
-    expect(isCreatureCard(state.players.P1.active!.card)).toBe(true);
+    expect(isFighterCard(state.players.P1.active!.card)).toBe(true);
     expect(state.players.P1.hand.every(card => card.kind === "item")).toBe(true);
   });
   it("AI resolves trainer plays without looping indefinitely", () => {

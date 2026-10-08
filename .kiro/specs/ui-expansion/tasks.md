@@ -2,14 +2,14 @@
 
 - [ ] 1. Extend card definition format (data-driven, stages + ability slot)
   - `types.ts`: add `Stage`, `AbilityDef`, optional `ability`, `evolvesFrom`, `art`, optional attack `text`. Keep rule-relevant fields intact.
-  - Migrate `cards.ts` to the richer format (add `art` keys; keep all current creatures Basic; optionally add one Stage1/Stage2 + one ability example for the viewer).
+  - Migrate `cards.ts` to the richer format (add `art` keys; keep all current fighters Basic; optionally add one Stage1/Stage2 + one ability example for the viewer).
   - _Requirements: R2_
 
 - [ ] 2. Add the discard pile to the engine
   - `types.ts`: add `DiscardEntry` and `PlayerState.discard`.
   - `setup.ts`: initialize `discard: []`.
   - `turn.ts`: clone `discard`; end-of-turn unattached energy -> discard.
-  - `moves.ts`: retreat cost energy -> discard; KO'd creature + its energy -> discard.
+  - `moves.ts`: retreat cost energy -> discard; KO'd fighter + its energy -> discard.
   - Tests: discard after end-of-turn, retreat, and KO; existing suite still green.
   - _Requirements: R6_
 

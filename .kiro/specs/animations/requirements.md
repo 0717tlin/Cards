@@ -30,8 +30,8 @@ Game rules do not change. The engine stays pure and deterministic; animations ar
 ### R1 — Structured battle events (engine)
 **User story:** As the UI, I need a machine-readable record of what each move did, so I can animate it precisely.
 
-1. The engine SHALL append structured events to `BattleState.events` for every state change that a player can see: battle start, turn start, energy generated, card drawn, energy attached, creature benched, retreat, promotion, attack used, damage dealt, knock-out, unattached energy discarded, and game won.
-2. Events SHALL carry enough data to animate without diffing states (e.g. creature uid, player, amount, whether weakness applied, and a snapshot of a knocked-out creature).
+1. The engine SHALL append structured events to `BattleState.events` for every state change that a player can see: battle start, turn start, energy generated, card drawn, energy attached, fighter benched, retreat, promotion, attack used, damage dealt, knock-out, unattached energy discarded, and game won.
+2. Events SHALL carry enough data to animate without diffing states (e.g. fighter uid, player, amount, whether weakness applied, and a snapshot of a knocked-out fighter).
 3. Events SHALL be deterministic: the same seed and moves produce the same events.
 4. The existing `log` (text) SHALL remain unchanged, and all existing engine tests SHALL pass.
 
@@ -51,11 +51,11 @@ Game rules do not change. The engine stays pure and deterministic; animations ar
 1. **Turn start:** a "Your turn" / "Opponent's turn" banner SHALL slide in and out.
 2. **Draw:** a newly drawn card SHALL slide into the hand from the deck side.
 3. **Energy generated:** the energy-zone ring SHALL pulse when energy appears.
-4. **Energy attached:** the energy SHALL visibly move from the energy zone onto the target creature (or pop in, if the move animation is not possible).
-5. **Bench:** a creature placed on the bench SHALL animate into its slot.
-6. **Retreat / promote:** creatures SHALL move smoothly between the bench and active spots.
+4. **Energy attached:** the energy SHALL visibly move from the energy zone onto the target fighter (or pop in, if the move animation is not possible).
+5. **Bench:** a fighter placed on the bench SHALL animate into its slot.
+6. **Retreat / promote:** fighters SHALL move smoothly between the bench and active spots.
 7. **Attack:** the attacker SHALL lunge toward the opponent. The defender SHALL shake and show a floating damage number, with a "Weak!" tag when weakness applied. The HP shown SHALL update after the hit.
-8. **Knock-out:** the knocked-out creature SHALL remain visible long enough to show the hit, then animate out toward the discard pile. The points badge SHALL pulse when points are scored.
+8. **Knock-out:** the knocked-out fighter SHALL remain visible long enough to show the hit, then animate out toward the discard pile. The points badge SHALL pulse when points are scored.
 9. **Win / lose:** the result banner SHALL animate in.
 10. Animations SHALL play in event order. Each move's animations SHALL finish before the next AI action starts.
 

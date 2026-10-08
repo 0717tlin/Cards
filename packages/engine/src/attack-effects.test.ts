@@ -5,7 +5,7 @@ import type { EnergyType } from "./types.js";
 const ilia = CARD_POOL["ilia-topuria"]!;
 const rightHook = ilia.attacks[1]!;
 function battle(attached: EnergyType[], weakness: EnergyType | null = null, hp = 200) {
-  const defender = { ...CARD_POOL.tidefin!, hp, weakness };
+  const defender = { ...CARD_POOL["khabib-nurmagomedov"]!, hp, weakness };
   const state = createBattle({seed: 12, deckP1: Array(20).fill(ilia), deckP2: Array(20).fill(defender), energyTypeP1: "fire", energyTypeP2: "water"});
   state.turnPlayer = "P1";
   state.players.P1.active!.attached = attached;

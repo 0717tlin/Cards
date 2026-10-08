@@ -21,6 +21,7 @@ This project is an all-TypeScript monorepo managed with **npm workspaces**.
 
 - Install everything: `npm install` (from repo root).
 - Build all: `npm run build` (root).
+- Rebuild the engine after every engine feature or engine card/rule/data change: `npm run build --workspace @card-game/engine` (from repo root). The frontend imports the engine package's compiled `dist` output, so restart the frontend dev server after rebuilding when it is already running.
 - Test all: `npm run test` (root).
 - Frontend dev server: `npm run dev:frontend`.
 - Backend dev server: `npm run dev:backend`.

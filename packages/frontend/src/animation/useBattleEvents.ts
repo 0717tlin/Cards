@@ -6,11 +6,11 @@
 // UI should show *at this moment* from (timeline, time since the batch arrived).
 // Deriving during render (instead of setting state in effects) means the very
 // first frame of a new state already looks right — e.g. the defender still
-// shows its pre-hit HP until the attack lands, and a knocked-out creature is
+// shows its pre-hit HP until the attack lands, and a knocked-out fighter is
 // still on the board as a "ghost".
 
 import { useEffect, useReducer, useRef } from "react";
-import type { BattleEvent, CreatureInPlay, PlayerId } from "@card-game/engine";
+import type { BattleEvent, FighterInPlay, PlayerId } from "@card-game/engine";
 import { opponentOf } from "@card-game/engine";
 import { EVENT_MS, prefersReducedMotion } from "./timing";
 
@@ -32,22 +32,23 @@ function buildTimeline(events: readonly BattleEvent[], firstIndex: number, reduc
 }
 
 export interface KoGhost {
+  fromBench?: boolean;
   key: number;
   player: PlayerId;
-  creature: CreatureInPlay;
+  fighter: FighterInPlay;
   /** Damage to display right now (pre-hit until the hit lands). */
   damage: number;
   shaking: boolean;
 }
 
 export interface BattleEffects {
-  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number } | null;
+  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number; attackName?: string; reason?: "burn" } | null;
   turnBanner: { player: PlayerId; key: number } | null;
   /** Attacker currently lunging. */
   lungeUid: string | null;
   /** Defender currently being hit (shake + damage pop). */
   hit: { uid: string; amount: number; weakness: boolean; key: number } | null;
-  /** Damage not yet "landed" visually, per creature uid (subtract from displayed damage). */
+  /** Damage not yet "landed" visually, per fighter uid (subtract from displayed damage). */
   pendingDamage: Record<string, number>;
   ghosts: KoGhost[];
   /** Points not yet awarded visually, per player (subtract from displayed points). */
@@ -58,9 +59,9 @@ export interface BattleEffects {
   ringPulse: { player: PlayerId; key: number } | null;
   /** Number of the human's most recently drawn cards not yet revealed. */
   hiddenDraws: Partial<Record<PlayerId, number>>;
-  /** An energy that is currently flying from the zone to this creature. */
+  /** An energy that is currently flying from the zone to this fighter. */
   flyEnergy: { player: PlayerId; uid: string } | null;
-  /** Creatures just placed on the bench (play their enter animation). */
+  /** Fighters just placed on the bench (play their enter animation). */
   entering: Record<string, true>;
 }
 
@@ -100,7 +101,7 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
     const ev = entry.event;
     switch (ev.kind) {
       case "coinFlipped":
-        if (active(entry)) fx.coin = { result: ev.result, flip: ev.flip, bonus: ev.bonus, key: entry.index };
+        if (active(entry)) fx.coin = { result: ev.result, flip: ev.flip, bonus: ev.bonus, key: entry.index, attackName: ev.attackName, reason: ev.reason };
         break;
       case "turnStarted":
         if (active(entry)) fx.turnBanner = { player: ev.player, key: entry.index };
@@ -125,17 +126,18 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
         if (active(entry)) fx.pointsPulse = { player: attacker, key: entry.index };
         // The ghost is visible from the start of the batch until the KO finishes.
         if (elapsed < entry.end) {
-          const hitEntry = damageEntries.find(
-            (d) => d.event.kind === "damageDealt" && d.event.uid === ev.creature.uid
+          const hits = damageEntries.filter(
+            (d) => d.index < entry.index && d.event.kind === "damageDealt" && d.event.uid === ev.fighter.uid
           );
-          const amount = hitEntry && hitEntry.event.kind === "damageDealt" ? hitEntry.event.amount : 0;
-          const landed = !hitEntry || elapsed >= hitEntry.start;
+          const pendingDamage = hits.reduce((sum, hit) =>
+            sum + (elapsed < hit.start && hit.event.kind === "damageDealt" ? hit.event.amount : 0), 0);
           fx.ghosts.push({
             key: entry.index,
             player: ev.player,
-            creature: ev.creature,
-            damage: landed ? ev.creature.damage : ev.creature.damage - amount,
-            shaking: !!hitEntry && active(hitEntry),
+            fighter: ev.fighter,
+            fromBench: ev.fromBench,
+            damage: ev.fighter.damage - pendingDamage,
+            shaking: hits.some(active),
           });
         }
         break;
@@ -150,7 +152,16 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
       case "energyAttached":
         if (active(entry)) fx.flyEnergy = { player: ev.player, uid: ev.targetUid };
         break;
-      case "creatureBenched":
+      case "fighterBenched":
+        if (elapsed < entry.end) fx.entering[ev.uid] = true;
+        break;
+      case "retreated":
+        if (elapsed < entry.end) {
+          fx.entering[ev.inUid] = true;
+          fx.entering[ev.outUid] = true;
+        }
+        break;
+      case "promoted":
         if (elapsed < entry.end) fx.entering[ev.uid] = true;
         break;
       default:

@@ -3,29 +3,29 @@
 import type {
   BattleConfig,
   BattleState,
-  CreatureCard,
+  FighterCard,
   CardDefinition,
-  CreatureInPlay,
+  FighterInPlay,
   PlayerId,
   PlayerState,
 } from "./types.js";
-import { HAND_SIZE, isCreatureCard } from "./types.js";
+import { HAND_SIZE, isFighterCard } from "./types.js";
 import { nextInt, shuffle } from "./rng.js";
 import { beginTurn } from "./turn.js";
 
 let uidCounter = 0;
-/** Instance uid. Deterministic within a process run; unique per creature instance. */
+/** Instance uid. Deterministic within a process run; unique per fighter instance. */
 export function makeUid(cardId: string): string {
   uidCounter += 1;
   return `${cardId}#${uidCounter}`;
 }
 
-export function toInPlay(card: CreatureCard): CreatureInPlay {
+export function toInPlay(card: FighterCard): FighterInPlay {
   return { uid: makeUid(card.id), card, damage: 0, attached: [] };
 }
 
-function isBasic(card: CardDefinition): card is CreatureCard {
-  return isCreatureCard(card) && card.stage === "basic";
+function isBasic(card: CardDefinition): card is FighterCard {
+  return isFighterCard(card) && card.stage === "basic";
 }
 
 /** Draw `count` cards from the top of the deck, returning hand + remaining deck. */
@@ -51,7 +51,7 @@ function openingHand(
       return { hand, deck: rest, state: s };
     }
   }
-  throw new Error("Deck contains no Basic creature; cannot form an opening hand.");
+  throw new Error("Deck contains no Basic fighter; cannot form an opening hand.");
 }
 
 function buildPlayer(
@@ -91,6 +91,8 @@ export function createBattle(config: BattleConfig): BattleState {
 
   const p1 = buildPlayer("P1", p1Open.hand, p1Open.deck, config.energyTypeP1);
   const p2 = buildPlayer("P2", p2Open.hand, p2Open.deck, config.energyTypeP2);
+  p1.energyTypes = [...new Set(config.energyTypesP1?.length ? config.energyTypesP1 : [config.energyTypeP1])];
+  p2.energyTypes = [...new Set(config.energyTypesP2?.length ? config.energyTypesP2 : [config.energyTypeP2])];
 
   const starterRoll = nextInt(s, 2);
   s = starterRoll.state;

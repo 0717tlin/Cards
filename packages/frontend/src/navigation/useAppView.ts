@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type AppView = "menu" | "viewer" | "builder" | "battle";
+export type AppView = "menu" | "viewer" | "builder" | "battle" | "packs" | "deckSelection";
 
 interface AppViewStore {
   view: AppView;

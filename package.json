@@ -2,7 +2,7 @@
   "name": "card-game",
   "private": true,
   "version": "0.0.0",
-  "description": "A Pokemon TCG Pocket-style full-stack web game (original theme).",
+  "description": "A UFC-themed full-stack card battle game.",
   "workspaces": [
     "packages/engine",
     "packages/backend",

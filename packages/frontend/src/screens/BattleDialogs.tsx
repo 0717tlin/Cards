@@ -1,8 +1,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { getRetreatCost, isCreatureCard, type CardDefinition, type CreatureInPlay, type Move, type TrainerCard } from "@card-game/engine";
+import { computeDamage, getRetreatCost, isFighterCard, type CardDefinition, type FighterInPlay, type Move, type TrainerCard } from "@card-game/engine";
 import { Card } from "../cards/Card";
-import { useBattleStore, HUMAN } from "../store/battleStore";
+import { useBattleStore, HUMAN, AI } from "../store/battleStore";
 
 function Dialog({ title, onClose, children }: { title: string; onClose?: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -33,7 +33,7 @@ function Dialog({ title, onClose, children }: { title: string; onClose?: () => v
   }, []);
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
-      <div ref={ref} className="modal mon-dialog" role="dialog" aria-modal="true" aria-label={title}
+      <div ref={ref} className="modal fighter-dialog" role="dialog" aria-modal="true" aria-label={title}
         tabIndex={-1} onClick={(event) => event.stopPropagation()}>
         <div className="modal__header">
           <h3>{title}</h3>
@@ -52,45 +52,66 @@ export function BattleLog({ lines, onClose }: { lines: string[]; onClose: () => 
 }
 
 export function ChooseActive({ bench, moves, onMove, onClose, retreat = false }: {
-  bench: CreatureInPlay[]; moves: Move[]; onMove: (move: Move) => void; onClose?: () => void; retreat?: boolean;
+  bench: FighterInPlay[]; moves: Move[]; onMove: (move: Move) => void; onClose?: () => void; retreat?: boolean;
 }) {
-  return <Dialog title={retreat ? "Choose a mon to switch in" : "Choose your new active mon"} onClose={onClose}>
-    <p className="muted small">{retreat ? "Select a benched mon. Your active will pay its retreat cost." : "Your active was knocked out. Choose a mon from your bench to continue."}</p>
-    <div className="mon-choices">
-      {bench.map((mon, benchIndex) => {
+  return <Dialog title={retreat ? "Choose a fighter to switch in" : "Choose your new active fighter"} onClose={onClose}>
+    <p className="muted small">{retreat ? "Select a benched fighter. Your active will pay its retreat cost." : "Your active was knocked out. Choose a fighter from your bench to continue."}</p>
+    <div className="fighter-choices">
+      {bench.map((fighter, benchIndex) => {
         const move = moves.find((candidate) => candidate.type === (retreat ? "retreat" : "promote") && candidate.benchIndex === benchIndex);
-        return <div key={mon.uid} className="mon-choice">
-          <Card card={mon.card} size="md" damage={mon.damage} attached={mon.attached} onClick={move ? () => onMove(move) : undefined} />
-          <button className="btn btn--promote" disabled={!move} onClick={() => move && onMove(move)}>Choose {mon.card.name}</button>
+        return <div key={fighter.uid} className="fighter-choice">
+          <Card card={fighter.card} size="md" damage={fighter.damage} paralyzed={fighter.paralyzed} burned={fighter.burned} retreatCostIncrease={fighter.retreatCostIncrease} attached={fighter.attached} onClick={move ? () => onMove(move) : undefined} />
+          <button className="btn btn--promote" disabled={!move} onClick={() => move && onMove(move)}>Choose {fighter.card.name}</button>
         </div>;
       })}
     </div>
   </Dialog>;
 }
 
-export function MonDetails({ card, mon, active, moves, bench, onMove, onClose, onChooseTargets }: {
-  card: CardDefinition; mon?: CreatureInPlay; active: boolean; moves: Move[]; bench: CreatureInPlay[];
+export function FighterDetails({ card, fighter, active, moves, bench, onMove, onClose, onChooseTargets }: {
+  card: CardDefinition; fighter?: FighterInPlay; active: boolean; moves: Move[]; bench: FighterInPlay[];
   onMove: (move: Move) => void; onClose: () => void;
   onChooseTargets: (moves: Move[], label: string) => void;
 }) {
   const player = useBattleStore((store) => store.state.players[HUMAN]);
-  if (!isCreatureCard(card)) return <TrainerDetails card={card} moves={moves} onMove={onMove} onClose={onClose} onChooseTargets={onChooseTargets} />;
+  const defender = useBattleStore((store) => store.state.players[AI].active);
+  if (!isFighterCard(card)) return <TrainerDetails card={card} moves={moves} onMove={onMove} onClose={onClose} onChooseTargets={onChooseTargets} />;
   const attacks = active ? moves.filter((move) => move.type === "attack") : [];
+  const retreatCost = getRetreatCost(player);
   return <Dialog title={card.name} onClose={onClose}>
-    <div className="mon-details">
-      <div className={mon ? "mon-details__card mon-details__card--energy" : "mon-details__card"}>
-        <Card card={card} size="lg" damage={mon?.damage} attached={mon?.attached} energyPlacement={mon ? "tray" : "art"} />
+    <div className="fighter-details">
+      <div className={fighter ? "fighter-details__card fighter-details__card--energy" : "fighter-details__card"}>
+        <Card card={card} size="lg" damage={fighter?.damage} paralyzed={fighter?.paralyzed} burned={fighter?.burned} retreatCostIncrease={fighter?.retreatCostIncrease} attached={fighter?.attached} energyPlacement={fighter ? "tray" : "art"} />
       </div>
-      <div className="mon-actions">
+      <div className="fighter-actions">
+        {fighter && card.ability?.effect?.kind === "discardEnergyToHeal" && <>
+          <button className="btn" disabled={!moves.some((move) => move.type === "useAbility")} onClick={() => {
+            const move = moves.find((candidate) => candidate.type === "useAbility");
+            if (move) onMove(move);
+          }}>{card.ability.name} · Heal 20 HP</button>
+          <p className="muted small">Discard one attached Fire Energy. Once per turn; requires damage to heal.</p>
+        </>}
+        {card.stage !== "basic" && !fighter && <>
+          <button className="btn" disabled={!moves.some((move) => move.type === "evolve")} onClick={() => onChooseTargets(moves.filter((move) => move.type === "evolve"), "Evolve")}>Evolve</button>
+          <p className="muted small">Choose a matching fighter already in play. Fighters cannot evolve on your first turn or the turn they entered play.</p>
+        </>}
         {active && <>
-          <h4>Active mon actions</h4>
+          <h4>Active fighter actions</h4>
           {card.attacks.map((attack) => {
-            const move = attacks.find((candidate) => candidate.type === "attack" && candidate.attackId === attack.id);
-            return <button key={attack.id} className="btn btn--attack" disabled={!move} onClick={() => move && onMove(move)}>
-              {attack.name}{attack.damage > 0 ? ` · ${attack.damage}${attack.effects?.length ? "+" : ""} damage` : ""}
+            const attackMoves = attacks.filter((candidate) => candidate.type === "attack" && candidate.attackId === attack.id);
+            const move = attackMoves[0];
+            const benchDamage = attack.effects?.find(effect => effect.kind === "benchDamage");
+            const damage = fighter && defender ? computeDamage(fighter, defender, attack, 0, bench) : attack.damage;
+            const random = attack.effects?.some((effect) => effect.kind === "flipUntilTails" || effect.kind === "coinDamageBonus");
+            return <button key={attack.id} className="btn btn--attack" disabled={!move} onClick={() => {
+              if (!move) return;
+              if (move.type === "attack" && move.targetUid) onChooseTargets(attackMoves, `${attack.name}: choose an opponent's benched fighter`);
+              else onMove(move);
+            }}>
+              {attack.name}{benchDamage?.kind === "benchDamage" && <> · {benchDamage.amount} bench damage</>}{attack.damage > 0 && <> · <span className={damage !== attack.damage ? "attack-preview--modified" : undefined}>{damage}{random ? "+" : ""}</span> damage</>}
             </button>;
           })}
-          <button className="btn" disabled={!moves.some((move) => move.type === "retreat")} onClick={() => onChooseTargets(moves.filter((move) => move.type === "retreat"), "Retreat")}>Retreat · {getRetreatCost(player)} energy</button>
+          <button className="btn" disabled={!moves.some((move) => move.type === "retreat")} onClick={() => onChooseTargets(moves.filter((move) => move.type === "retreat"), "Retreat")}>Retreat · <span className={retreatCost !== card.retreatCost ? "retreat-preview--modified" : undefined}>{retreatCost === 0 ? "Free" : `${retreatCost} energy`}</span></button>
           <p className="muted small">Available actions depend on your turn and attached energy.</p>
         </>}
         {moves.filter((move) => move.type === "attachEnergy" || move.type === "playBasic").map((move) =>
@@ -109,12 +130,12 @@ function TrainerDetails({ card, moves, onMove, onClose, onChooseTargets }: {
   const plays = moves.filter((move) => move.type === "playTrainer");
   const unavailable = state.players[HUMAN].hasPlayedSupporter && card.kind === "supporter"
     ? "You already played a Supporter this turn."
-    : card.effect.kind === "heal" ? "There is no damaged mon this card can heal."
+    : card.effect.kind === "heal" ? "There is no damaged fighter this card can heal."
     : card.effect.kind === "draw" ? "Your deck is empty."
-    : "Your active mon's Retreat Cost is already zero.";
+    : "Your active fighter's Retreat Cost is already zero.";
   return <Dialog title={card.name} onClose={onClose}>
-    <div className="mon-details"><div className="mon-details__card"><Card card={card} size="lg" /></div>
-      <div className="mon-actions">
+    <div className="fighter-details"><div className="fighter-details__card"><Card card={card} size="lg" /></div>
+      <div className="fighter-actions">
         <h4>{card.kind === "item" ? "Play Item" : "Play Supporter"}</h4>
         <button className="btn btn--new" disabled={plays.length === 0} onClick={() => {
           if (!plays[0]) return;

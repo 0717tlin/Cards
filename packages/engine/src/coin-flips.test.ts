@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { applyMove, createBattle, CARD_POOL, getLegalMoves } from "./index.js";
 import { nextFloat } from "./rng.js";
 function battle(seed: number, hp = 500) {
-  const mon = CARD_POOL["tommy-mcmillan"]!;
-  const state = createBattle({seed: 12, deckP1: Array(20).fill(mon), deckP2: Array(20).fill({...CARD_POOL.tidefin!, hp, weakness: null}), energyTypeP1: "fire", energyTypeP2: "water"});
+  const fighter = CARD_POOL["tommy-mcmillan"]!;
+  const state = createBattle({seed: 12, deckP1: Array(20).fill(fighter), deckP2: Array(20).fill({...CARD_POOL["khabib-nurmagomedov"]!, hp, weakness: null}), energyTypeP1: "fire", energyTypeP2: "water"});
   state.turnPlayer = "P1";
   state.rngState = seed;
   state.players.P1.active!.attached = ["water"];

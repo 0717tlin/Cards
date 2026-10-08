@@ -25,20 +25,20 @@ export type BattleEvent =
   | { kind: "energyGenerated"; player: PlayerId; energy: EnergyType }
   | { kind: "cardDrawn"; player: PlayerId }
   | { kind: "energyAttached"; player: PlayerId; targetUid: string; energy: EnergyType }
-  | { kind: "creatureBenched"; player: PlayerId; uid: string }
+  | { kind: "fighterBenched"; player: PlayerId; uid: string }
   | { kind: "retreated"; player: PlayerId; outUid: string; inUid: string; paid: EnergyType[] }
   | { kind: "promoted"; player: PlayerId; uid: string }
   | { kind: "attackUsed"; player: PlayerId; attackerUid: string; attackId: string; targetUid: string }
   | { kind: "damageDealt"; player: PlayerId; uid: string; amount: number; weakness: boolean }
-  | { kind: "knockedOut"; player: PlayerId; creature: CreatureInPlay; pointsAwarded: number }
+  | { kind: "knockedOut"; player: PlayerId; fighter: FighterInPlay; pointsAwarded: number }
   | { kind: "energyDiscarded"; player: PlayerId; energy: EnergyType }
-  | { kind: "gameWon"; player: PlayerId; reason: "points" | "noCreatures" };
+  | { kind: "gameWon"; player: PlayerId; reason: "points" | "noFighters" };
 
 // BattleState gains:
 events: BattleEvent[]; // append-only history, like `log`
 ```
 
-In each event, `player` is the player the event happens to: the owner of the damaged or knocked-out creature, or the player who acted.
+In each event, `player` is the player the event happens to: the owner of the damaged or knocked-out fighter, or the player who acted.
 
 ### Where events are emitted
 | Code path | Events |
@@ -47,10 +47,10 @@ In each event, `player` is the player the event happens to: the owner of the dam
 | `beginTurn` | `turnStarted`; `energyGenerated` and `cardDrawn` (except on turn 1 / when the deck is empty) |
 | `endTurn` | `energyDiscarded` if energy was left unattached |
 | `applyAttachEnergy` | `energyAttached` |
-| `applyPlayBasic` | `creatureBenched` |
+| `applyPlayBasic` | `fighterBenched` |
 | `applyRetreat` | `retreated` |
 | `applyPromote` | `promoted` |
-| `applyAttack` | `attackUsed`, `damageDealt`; on KO `knockedOut` (with a snapshot of the creature before removal), then `gameWon` or the turn change |
+| `applyAttack` | `attackUsed`, `damageDealt`; on KO `knockedOut` (with a snapshot of the fighter before removal), then `gameWon` or the turn change |
 
 `cloneState` copies `events`, and `weakness` is taken from the same comparison `computeDamage` uses. This is an additive change with no rule changes. Engine version goes to 0.3.0.
 
@@ -85,7 +85,7 @@ Timers use `setTimeout`. Each callback captures `gameId` and does nothing if it 
 | cardDrawn | 300 | | attackUsed | 350 |
 | energyGenerated | 250 | | damageDealt | 550 |
 | energyAttached | 400 | | knockedOut | 650 |
-| creatureBenched | 350 | | energyDiscarded | 0 |
+| fighterBenched | 350 | | energyDiscarded | 0 |
 | gameWon | 0 (the banner stays up) | | battleStarted | 0 |
 
 `animationTime(events)` is the sum of these durations. `AI_THINK_MS = 500`.
@@ -102,7 +102,7 @@ It watches `state.events` from the last handled index and turns each new event i
 - `turnBanner: { player } | null`
 - `damagePops: { uid, amount, weakness, key }[]`
 - `lunging: uid | null` and `shaking: uid | null`
-- `koGhosts: { player, creature, key }[]`
+- `koGhosts: { player, fighter, key }[]`
 - `ringPulse: PlayerId | null` and `pointsPulse: PlayerId | null`
 - `lastAttached: { uid, index } | null` (drives the energy fly)
 
@@ -113,7 +113,7 @@ It watches `state.events` from the last handled index and turns each new event i
 - **Bench / retreat / promote:** each in-play card is a `motion.div` with `layoutId={uid}`. Retreat and promote then move smoothly between slots, and a newly benched card uses its `initial` enter animation.
 - **Energy attach:** the pending pip in the energy zone gets `layoutId={"energy-" + player}`. When `energyAttached` fires, the newly attached pip on the target gets the same `layoutId` for that render, so Motion flies it across. If that proves unreliable inside drop zones, the fallback is a scale pop-in (allowed by R4.4).
 - **Attack:** the attacker gets a y-offset keyframe toward the center (up for the human, down for the AI). The defender gets an x-shake keyframe and a floating `-40` (plus "Weak!") pop. The HP number is keyed by value so it flashes when it changes.
-- **Knock-out:** the engine removes the creature immediately. The UI draws a `koGhost` (the snapshot from the event) in that active slot, plays the hit, then exits it toward the discard pile with scale down, fade, and translate. The empty slot or promotion drop zone appears after it.
+- **Knock-out:** the engine removes the fighter immediately. The UI draws a `koGhost` (the snapshot from the event) in that active slot, plays the hit, then exits it toward the discard pile with scale down, fade, and translate. The empty slot or promotion drop zone appears after it.
 - **Points and result:** the points badge pulses on `pointsPulse`, and the result banner springs in.
 - **Other screens (R5):** grid items use `motion.div` with a staggered `initial`/`animate` and a `key` that includes the filter so they re-stagger when it changes. Deck-list rows use `AnimatePresence` with height and opacity. The count badge is keyed by its count so it pops.
 

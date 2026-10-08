@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { motion } from "motion/react";
-import { ALL_CARD_POOL as CARD_POOL, isCreatureCard, type CardDefinition, type EnergyType } from "@card-game/engine";
+import { ALL_CARD_POOL as CARD_POOL, isFighterCard, type CardDefinition, type EnergyType } from "@card-game/engine";
 import { Card } from "../cards/Card";
 import { CardZoom } from "../cards/CardZoom";
 import { ENERGY_SYMBOL } from "../cards/cardArt";
 
 const ALL_CARDS: CardDefinition[] = Object.values(CARD_POOL);
-const TYPES: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting"];
+const TYPES: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting", "colorless"];
+const TYPE_ORDER = new Map(TYPES.map((type, index) => [type, index]));
 
 export function CardViewer() {
   const [filter, setFilter] = useState<EnergyType | "all" | "item" | "supporter">("all");
   const [zoomed, setZoomed] = useState<CardDefinition | null>(null);
-  const cards = filter === "all" ? ALL_CARDS : ALL_CARDS.filter((c) => isCreatureCard(c) ? c.type === filter : c.kind === filter);
+  const cards = (filter === "all" ? ALL_CARDS : ALL_CARDS.filter((c) => isFighterCard(c) ? c.type === filter : c.kind === filter))
+    .slice()
+    .sort((a, b) => {
+      const typeA = isFighterCard(a) ? TYPE_ORDER.get(a.type)! : TYPES.length;
+      const typeB = isFighterCard(b) ? TYPE_ORDER.get(b.type)! : TYPES.length;
+      return typeA - typeB || a.name.localeCompare(b.name);
+    });
 
   return (
     <div className="screen">

@@ -12,12 +12,20 @@ export type EnergyType =
   | "colorless";
 
 export type Stage = "basic" | "stage1" | "stage2";
+export type CardRarity = "common" | "uncommon" | "rare" | "epic";
 
 export type AttackEffect = {
   kind: "damagePerAttachedEnergy";
   energy: EnergyType;
   amount: number;
-} | { kind: "flipUntilTails"; amount: number };
+} | { kind: "flipUntilTails"; amount: number }
+  | { kind: "coinDamageBonus"; amount: number }
+  | { kind: "reduceIncomingDamage"; amount: number }
+  | { kind: "increaseRetreatCost"; amount: number }
+  | { kind: "paralyzeAtOrBelowHp"; hp: number }
+  | { kind: "burn" }
+  | { kind: "benchDamageBonus"; cardId: string; amount: number }
+  | { kind: "benchDamage"; amount: number; chooseWithCardId: string };
 
 export interface AttackDef {
   id: string;
@@ -33,13 +41,14 @@ export interface AttackDef {
 
 export interface AbilityDef {
   name: string;
-  /** Display only this milestone; no effect resolution. */
   text: string;
+  effect?: { kind: "discardEnergyToHeal"; energy: EnergyType; amount: number };
 }
 
-export interface CreatureCard {
-  kind?: "mon";
-  /** Definition id, e.g. "emberpup". Not unique per battle instance. */
+export interface FighterCard {
+  kind?: "fighter";
+  rarity?: CardRarity;
+  /** Definition id, e.g. "ilia-topuria". Not unique per battle instance. */
   id: string;
   name: string;
   type: EnergyType;
@@ -51,9 +60,9 @@ export interface CreatureCard {
   /** KO awards 2 points instead of 1 when true. */
   isEx: boolean;
   stage: Stage;
-  /** Optional ability. Carried as data; not resolved during battle this milestone. */
+  /** Optional activated or passive ability. */
   ability?: AbilityDef;
-  /** Card id this evolves from. Carried for future evolution; unused in battle now. */
+  /** Definition id of the fighter this card can evolve from. */
   evolvesFrom?: string;
   /** Art key resolved by the frontend. Optional; placeholder used when absent. */
   art?: string;
@@ -65,6 +74,7 @@ export type TrainerEffect =
   | { kind: "reduceRetreat"; amount: number };
 
 export interface TrainerCard {
+  rarity?: CardRarity;
   id: string;
   name: string;
   kind: "item" | "supporter";
@@ -73,23 +83,31 @@ export interface TrainerCard {
   art?: string;
 }
 
-export type CardDefinition = CreatureCard | TrainerCard;
-export function isCreatureCard(card: CardDefinition): card is CreatureCard {
+export type CardDefinition = FighterCard | TrainerCard;
+export function isFighterCard(card: CardDefinition): card is FighterCard {
   return card.kind !== "item" && card.kind !== "supporter";
 }
 
-export interface CreatureInPlay {
+export interface FighterInPlay {
   /** Unique per instance within a single battle. */
   uid: string;
-  card: CreatureCard;
+  card: FighterCard;
   /** Accumulated damage; KO when damage >= card.hp. */
   damage: number;
   attached: EnergyType[];
+  enteredTurn?: number;
+  evolvedTurn?: number;
+  damageReduction?: number;
+  paralyzed?: boolean;
+  burned?: boolean;
+  retreatCostIncrease?: number;
+  previousStages?: FighterCard[];
+  abilityUsedTurn?: number;
 }
 
-/** An entry in a player's discard pile: a knocked-out creature or spent energy. */
+/** An entry in a player's discard pile: a knocked-out fighter or spent energy. */
 export type DiscardEntry =
-  | { kind: "creature"; card: CreatureCard }
+  | { kind: "fighter"; card: FighterCard }
   | { kind: "trainer"; card: TrainerCard }
   | { kind: "energy"; energy: EnergyType };
 
@@ -98,14 +116,15 @@ export interface PlayerState {
   /** Remaining library; index 0 is the top of the deck. */
   deck: CardDefinition[];
   hand: CardDefinition[];
-  active: CreatureInPlay | null;
+  active: FighterInPlay | null;
   /** Max length 3. */
-  bench: CreatureInPlay[];
+  bench: FighterInPlay[];
   /** This deck's energy zone output type. */
   energyType: EnergyType;
+  energyTypes?: EnergyType[];
   /** Energy generated this turn, not yet attached. */
   pendingEnergy: EnergyType | null;
-  /** Knocked-out creatures and spent energy. */
+  /** Knocked-out fighters and spent energy. */
   discard: DiscardEntry[];
   points: number;
   // Transient per-turn flags, reset at beginTurn.
@@ -123,9 +142,10 @@ export type Phase =
  * Structured, machine-readable record of something visible that happened.
  * Appended to BattleState.events (append-only, like `log`) so the UI can
  * animate exactly what occurred. `player` is the player the event concerns:
- * the actor, or the owner of the affected creature.
+ * the actor, or the owner of the affected fighter.
  */
 export type BattleEvent =
+  | { kind: "abilityUsed"; player: PlayerId; uid: string; name: string }
   | { kind: "trainerPlayed"; player: PlayerId; card: TrainerCard }
   | { kind: "healed"; player: PlayerId; uid: string; amount: number }
   | { kind: "retreatCostReduced"; player: PlayerId; amount: number }
@@ -134,15 +154,17 @@ export type BattleEvent =
   | { kind: "energyGenerated"; player: PlayerId; energy: EnergyType }
   | { kind: "cardDrawn"; player: PlayerId }
   | { kind: "energyAttached"; player: PlayerId; targetUid: string; energy: EnergyType }
-  | { kind: "creatureBenched"; player: PlayerId; uid: string }
+  | { kind: "fighterBenched"; player: PlayerId; uid: string }
+  | { kind: "evolved"; player: PlayerId; uid: string; name: string }
+  | { kind: "damageReductionApplied"; player: PlayerId; uid: string; amount: number }
   | { kind: "retreated"; player: PlayerId; outUid: string; inUid: string; paid: EnergyType[] }
   | { kind: "promoted"; player: PlayerId; uid: string }
   | { kind: "attackUsed"; player: PlayerId; attackerUid: string; attackId: string; targetUid: string }
-  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number }
+  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number; attackName?: string; reason?: "burn" }
   | { kind: "damageDealt"; player: PlayerId; uid: string; amount: number; weakness: boolean }
-  | { kind: "knockedOut"; player: PlayerId; creature: CreatureInPlay; pointsAwarded: number }
+  | { kind: "knockedOut"; player: PlayerId; fighter: FighterInPlay; pointsAwarded: number; fromBench?: boolean }
   | { kind: "energyDiscarded"; player: PlayerId; energy: EnergyType }
-  | { kind: "gameWon"; player: PlayerId; reason: "points" | "noCreatures" };
+  | { kind: "gameWon"; player: PlayerId; reason: "points" | "noFighters" };
 
 export interface BattleState {
   players: Record<PlayerId, PlayerState>;
@@ -159,11 +181,13 @@ export interface BattleState {
 }
 
 export type Move =
+  | { type: "useAbility"; targetUid: string }
+  | { type: "evolve"; handIndex: number; targetUid: string }
   | { type: "playTrainer"; handIndex: number; targetUid?: string }
   | { type: "attachEnergy"; targetUid: string }
   | { type: "playBasic"; handIndex: number }
   | { type: "retreat"; benchIndex: number }
-  | { type: "attack"; attackId: string }
+  | { type: "attack"; attackId: string; targetUid?: string }
   | { type: "pass" }
   | { type: "promote"; benchIndex: number };
 
@@ -173,6 +197,8 @@ export interface BattleConfig {
   deckP2: CardDefinition[];
   energyTypeP1: EnergyType;
   energyTypeP2: EnergyType;
+  energyTypesP1?: EnergyType[];
+  energyTypesP2?: EnergyType[];
 }
 
 export const MAX_BENCH = 3;

@@ -10,7 +10,7 @@
 import { create } from "zustand";
 import {
   createBattle,
-  isCreatureCard,
+  isFighterCard,
   getLegalMoves,
   applyMove,
   actingPlayer,
@@ -30,11 +30,11 @@ import { aiThinkTime, animationTime } from "../animation/timing";
 const HUMAN: PlayerId = "P1";
 const AI: PlayerId = "P2";
 
-/** Infer an energy zone type from a deck: the most common non-colorless creature type. */
+/** Infer an energy zone type from a deck: the most common non-colorless fighter type. */
 function inferEnergyType(deck: BattleState["players"]["P1"]["deck"]): EnergyType {
   const counts = new Map<EnergyType, number>();
   for (const card of deck) {
-    if (!isCreatureCard(card) || card.type === "colorless") continue;
+    if (!isFighterCard(card) || card.type === "colorless") continue;
     counts.set(card.type, (counts.get(card.type) ?? 0) + 1);
   }
   let best: EnergyType = PLAYER_ENERGY;
@@ -48,7 +48,7 @@ function inferEnergyType(deck: BattleState["players"]["P1"]["deck"]): EnergyType
   return best;
 }
 
-function makeBattle(seed: number, humanDeck?: CardDefinition[]): BattleState {
+function makeBattle(seed: number, humanDeck?: CardDefinition[], energyTypes?: EnergyType[]): BattleState {
   const deckP1 = humanDeck ?? DECK_PLAYER;
   return createBattle({
     seed,
@@ -56,6 +56,7 @@ function makeBattle(seed: number, humanDeck?: CardDefinition[]): BattleState {
     deckP2: DECK_AI,
     energyTypeP1: humanDeck ? inferEnergyType(deckP1) : PLAYER_ENERGY,
     energyTypeP2: AI_ENERGY,
+    energyTypesP1: energyTypes,
   });
 }
 
@@ -78,7 +79,8 @@ interface BattleStore {
   gameId: number;
   /** The human deck last used to start a battle; null = default deck. */
   humanDeck: CardDefinition[] | null;
-  newGame: (opts?: { humanDeck?: CardDefinition[]; seed?: number }) => void;
+  humanEnergyTypes: EnergyType[] | null;
+  newGame: (opts?: { humanDeck?: CardDefinition[]; energyTypes?: EnergyType[]; seed?: number }) => void;
   dispatch: (move: Move) => void;
 }
 
@@ -144,12 +146,14 @@ export const useBattleStore = create<BattleStore>((set, get) => {
     batchStart: 0,
     gameId: 0,
     humanDeck: null,
+    humanEnergyTypes: null,
 
     newGame: (opts) => {
       const seed = opts?.seed ?? randomSeed();
       // Reuse the deck from opts if given, otherwise keep the last-used deck.
       const humanDeck = opts?.humanDeck ?? get().humanDeck ?? undefined;
-      const state = makeBattle(seed, humanDeck);
+      const energyTypes = opts?.energyTypes ?? (opts?.humanDeck ? undefined : get().humanEnergyTypes ?? undefined);
+      const state = makeBattle(seed, humanDeck, energyTypes);
       const id = get().gameId + 1;
       set({
         state,
@@ -160,6 +164,7 @@ export const useBattleStore = create<BattleStore>((set, get) => {
         aiActing: aiToAct(state),
         batchStart: 0,
         humanDeck: humanDeck ?? null,
+        humanEnergyTypes: energyTypes ?? null,
       });
       start(state, id);
     },

@@ -4,6 +4,9 @@ import { MainMenu } from "./screens/MainMenu";
 import { CardViewer } from "./screens/CardViewer";
 import { DeckBuilder } from "./screens/DeckBuilder";
 import { Battle } from "./screens/Battle";
+import { PackOpening } from "./screens/PackOpening";
+import { DeckSelection } from "./screens/DeckSelection";
+import { useBattleStore } from "./store/battleStore";
 import { SCREEN_TRANSITION_MS } from "./animation/timing";
 import "./styles.css";
 
@@ -18,6 +21,8 @@ const TITLES: Record<Exclude<AppView, "menu">, string> = {
   viewer: "Cards",
   builder: "Deck Builder",
   battle: "Battle",
+  packs: "Pack Opening",
+  deckSelection: "Deck Selection",
 };
 
 // "wait" mode plays exit then enter, so each half gets about half the budget.
@@ -29,9 +34,12 @@ const screenMotion = {
 };
 
 function Screen({ view }: { view: Exclude<AppView, "menu"> }) {
+  const gameId = useBattleStore((store) => store.gameId);
+  if (view === "deckSelection") return <DeckSelection />;
+  if (view === "packs") return <PackOpening />;
   if (view === "viewer") return <CardViewer />;
   if (view === "builder") return <DeckBuilder />;
-  return <Battle />;
+  return <Battle key={gameId} />;
 }
 
 export function App() {
@@ -41,7 +49,7 @@ export function App() {
   return (
     // reducedMotion="user": honour the OS "reduce motion" setting everywhere.
     <MotionConfig reducedMotion="user">
-      <div className={`app${view === "battle" ? " app--battle" : ""}`}>
+      <div className={`app${view === "battle" ? " app--battle" : view === "packs" ? " app--packs" : ""}`}>
         <div className="phone">
           <AnimatePresence mode="wait" initial={false}>
             {view === "menu" ? (
@@ -55,7 +63,7 @@ export function App() {
                   <span className="topbar__title">{TITLES[view]}</span>
                 </header>
 
-                <main className={`app__main${view === "battle" ? " app__main--battle" : ""}`}>
+                <main className={`app__main${view === "battle" ? " app__main--battle" : view === "packs" ? " app__main--packs" : ""}`}>
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div key={view} className="screen-wrap" {...screenMotion}>
                       <Screen view={view} />

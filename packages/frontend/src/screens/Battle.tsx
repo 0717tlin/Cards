@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   actingPlayer,
   type CardDefinition,
-  type CreatureInPlay,
+  type FighterInPlay,
   type DiscardEntry,
   type Move,
   type PlayerId,
@@ -13,7 +13,7 @@ import { useBattleStore, HUMAN, AI } from "../store/battleStore";
 import { useAppView } from "../navigation/useAppView";
 import { Card, EnergyPip, Pop } from "../cards/Card";
 import { useBattleEvents, type BattleEffects, type KoGhost } from "../animation/useBattleEvents";
-import { BattleLog, MonDetails } from "./BattleDialogs";
+import { BattleLog, FighterDetails } from "./BattleDialogs";
 import { EVENT_MS } from "../animation/timing";
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ type DragPayload =
 
 type DropTarget =
   | { kind: "benchSlot" } // empty bench slot: play a Basic from hand
-  | { kind: "creature"; uid: string }; // one of your mons: attach energy
+  | { kind: "fighter"; uid: string }; // one of your fighters: attach energy
 
 /** Resolve a drag onto one of a zone's targets into a legal engine move. */
 function resolveMove(moves: Move[], drag: DragPayload, targets: DropTarget[]): Move | undefined {
@@ -39,9 +39,10 @@ function resolveMove(moves: Move[], drag: DragPayload, targets: DropTarget[]): M
       if (drag.kind === "hand" && target.kind === "benchSlot") {
         return m.type === "playBasic" && m.handIndex === drag.handIndex;
       }
-      if (drag.kind === "energy" && target.kind === "creature") {
+      if (drag.kind === "energy" && target.kind === "fighter") {
         return m.type === "attachEnergy" && m.targetUid === target.uid;
       }
+      if (drag.kind === "hand" && target.kind === "fighter") return m.type === "evolve" && m.handIndex === drag.handIndex && m.targetUid === target.uid;
       return false;
     });
     if (found) return found;
@@ -52,7 +53,7 @@ function resolveMove(moves: Move[], drag: DragPayload, targets: DropTarget[]): M
 /** Whether a drag source has at least one legal move it could produce. */
 function canDrag(moves: Move[], drag: DragPayload): boolean {
   return moves.some((m) => {
-    if (drag.kind === "hand") return m.type === "playBasic" && m.handIndex === drag.handIndex;
+    if (drag.kind === "hand") return (m.type === "playBasic" || m.type === "evolve") && m.handIndex === drag.handIndex;
     if (drag.kind === "energy") return m.type === "attachEnergy";
     return false;
   });
@@ -148,7 +149,7 @@ function towardCenter(player: PlayerId): number {
 }
 
 /**
- * Floating damage number (and "Weak!" tag) over a creature being hit. A plain
+ * Floating damage number (and "Weak!" tag) over a fighter being hit. A plain
  * CSS keyframe animation that runs once on mount (see .dmg-pop in styles.css);
  * its duration comes from the same timing table via a CSS variable.
  */
@@ -166,10 +167,10 @@ function DamagePop({ hit }: { hit: NonNullable<BattleEffects["hit"]> }) {
 }
 
 /**
- * A creature on the board. `layoutId={uid}` makes Motion animate it between
- * slots (retreat / promote); `initial` animates a newly benched creature in.
+ * A fighter on the board. Slot changes use an entry animation rather than
+ * shared layout crossfades, which can leave swapped cards hidden.
  */
-function Creature({
+function Fighter({
   c,
   owner,
   fx,
@@ -177,7 +178,7 @@ function Creature({
   highlight = false,
   onInspect,
 }: {
-  c: CreatureInPlay;
+  c: FighterInPlay;
   owner: PlayerId;
   fx: BattleEffects;
   turnNumber: number;
@@ -194,10 +195,8 @@ function Creature({
 
   return (
     <motion.div
-      layoutId={c.uid}
-      className={`creature${targeting.active ? targetable ? " creature--targetable" : " creature--blocked" : ""}`}
-      // Only a newly benched creature animates in; retreat/promote remounts
-      // are handled by the shared layout animation instead.
+      className={`fighter${targeting.active ? targetable ? " fighter--targetable" : " fighter--blocked" : ""}`}
+      // Each slot mounts its own visible card when the fighter changes.
       initial={fx.entering[c.uid] ? { opacity: 0, y: -dir * 60, scale: 0.9 } : false}
       animate={{
         opacity: 1,
@@ -214,6 +213,9 @@ function Creature({
         card={c.card}
         size="sm"
         damage={damage}
+        paralyzed={c.paralyzed}
+        burned={c.burned}
+        retreatCostIncrease={c.retreatCostIncrease}
         attached={c.attached}
         energyPlacement="tray"
         highlight={targeting.active ? targetable : highlight}
@@ -225,10 +227,10 @@ function Creature({
   );
 }
 
-/** A knocked-out creature, kept on screen for the hit, then sent to the discard. */
+/** A knocked-out fighter, kept on screen for the hit, then sent to the discard. */
 function Ghost({ ghost, hit }: { ghost: KoGhost; hit: BattleEffects["hit"] }) {
   const dir = towardCenter(ghost.player);
-  const hitHere = hit?.uid === ghost.creature.uid ? hit : null;
+  const hitHere = hit?.uid === ghost.fighter.uid ? hit : null;
   return (
     <motion.div
       className="ko-ghost"
@@ -244,8 +246,8 @@ function Ghost({ ghost, hit }: { ghost: KoGhost; hit: BattleEffects["hit"] }) {
         transition: { duration: s(EVENT_MS.knockedOut) * 0.8, ease: "easeIn" },
       }}
     >
-      <div className="creature">
-        <Card card={ghost.creature.card} size="sm" damage={ghost.damage} attached={ghost.creature.attached} energyPlacement="tray" />
+      <div className="fighter">
+        <Card card={ghost.fighter.card} size="sm" damage={ghost.damage} attached={ghost.fighter.attached} energyPlacement="tray" />
         {/* The finishing blow gets its damage number (and "Weak!" tag) too. */}
         {hitHere && <DamagePop hit={hitHere} />}
       </div>
@@ -275,10 +277,10 @@ function EnergyZone({
       className="zone__energy"
       animate={pulsing ? { scale: [1, 1.18, 1] } : { scale: 1 }}
       transition={{ duration: s(EVENT_MS.energyGenerated) }}
-      title={dnd && visible ? "Drag onto one of your creatures" : undefined}
+      title={dnd && visible ? "Drag onto one of your fighters" : undefined}
     >
       {visible ? (
-        // Shared layout id: when attached, the pip flies to the target creature.
+        // Shared layout id: when attached, the pip flies to the target fighter.
         <motion.span
           layoutId={`energy-${player.id}-${turnNumber}`}
           style={{ display: "inline-flex" }}
@@ -377,12 +379,13 @@ function OpponentZone({
 }: {
   player: PlayerState;
   isTurn: boolean;
-  onInspect: (mon: CreatureInPlay) => void;
+  onInspect: (fighter: FighterInPlay) => void;
   fx: BattleEffects;
   turnNumber: number;
   onInspectDiscard: () => void;
 }) {
-  const ghosts = fx.ghosts.filter((g) => g.player === player.id);
+  const ghosts = fx.ghosts.filter((g) => g.player === player.id && !g.fromBench);
+  const benchGhosts = fx.ghosts.filter((g) => g.player === player.id && g.fromBench);
   return (
     <section className={`pzone pzone--opponent${isTurn ? " pzone--turn" : ""}`}>
       <div className="pzone__head">
@@ -396,15 +399,16 @@ function OpponentZone({
         <div className="pzone__rows">
           <div className="row row--bench">
             {player.bench.map((c) => (
-              <Creature key={c.uid} c={c} owner={player.id} fx={fx} turnNumber={turnNumber} onInspect={() => onInspect(c)} />
+              <Fighter key={c.uid} c={c} owner={player.id} fx={fx} turnNumber={turnNumber} onInspect={() => onInspect(c)} />
             ))}
-            {Array.from({ length: 3 - player.bench.length }).map((_, i) => (
+            {benchGhosts.map(ghost => <Ghost key={ghost.key} ghost={ghost} hit={fx.hit} />)}
+            {Array.from({ length: Math.max(0, 3 - player.bench.length - benchGhosts.length) }).map((_, i) => (
               <EmptySlot key={i} label="bench" />
             ))}
           </div>
           <ActiveRow ghosts={ghosts} hit={fx.hit}>
             {player.active ? (
-              <Creature c={player.active} owner={player.id} fx={fx} turnNumber={turnNumber} highlight onInspect={() => onInspect(player.active!)} />
+              <Fighter key={player.active.uid} c={player.active} owner={player.id} fx={fx} turnNumber={turnNumber} highlight onInspect={() => onInspect(player.active!)} />
             ) : (
               <EmptySlot label="active" />
             )}
@@ -433,13 +437,14 @@ function HumanZone({
 }: {
   player: PlayerState;
   isTurn: boolean;
-  onInspect: (mon: CreatureInPlay) => void;
+  onInspect: (fighter: FighterInPlay) => void;
   fx: BattleEffects;
   turnNumber: number;
   dnd: DndApi;
   onInspectDiscard: () => void;
 }) {
-  const ghosts = fx.ghosts.filter((g) => g.player === player.id);
+  const ghosts = fx.ghosts.filter((g) => g.player === player.id && !g.fromBench);
+  const benchGhosts = fx.ghosts.filter((g) => g.player === player.id && g.fromBench);
 
   return (
     <section className={`pzone pzone--human${isTurn ? " pzone--turn" : ""}`}>
@@ -454,9 +459,10 @@ function HumanZone({
               // Active accepts energy; attack and retreat live in the enlarged view.
               <DropZone
                 dnd={dnd}
-                targets={[{ kind: "creature", uid: player.active.uid }]}
+                targets={[{ kind: "fighter", uid: player.active.uid }]}
               >
-                <Creature
+                <Fighter
+                  key={player.active.uid}
                   c={player.active}
                   owner={player.id}
                   fx={fx}
@@ -471,11 +477,12 @@ function HumanZone({
           </ActiveRow>
           <div className="row row--bench">
             {player.bench.map((c, benchIndex) => (
-              <DropZone key={c.uid} dnd={dnd} targets={[{ kind: "creature", uid: c.uid }]}>
-                <Creature c={c} owner={player.id} fx={fx} turnNumber={turnNumber} onInspect={() => onInspect(c)} />
+              <DropZone key={c.uid} dnd={dnd} targets={[{ kind: "fighter", uid: c.uid }]}>
+                <Fighter c={c} owner={player.id} fx={fx} turnNumber={turnNumber} onInspect={() => onInspect(c)} />
               </DropZone>
             ))}
-            {Array.from({ length: 3 - player.bench.length }).map((_, i) => (
+            {benchGhosts.map(ghost => <Ghost key={ghost.key} ghost={ghost} hit={fx.hit} />)}
+            {Array.from({ length: Math.max(0, 3 - player.bench.length - benchGhosts.length) }).map((_, i) => (
               <DropZone key={`empty-${i}`} dnd={dnd} targets={[{ kind: "benchSlot" }]}>
                 <EmptySlot label="bench" />
               </DropZone>
@@ -546,8 +553,8 @@ function DiscardModal({
   entries: DiscardEntry[];
   onClose: () => void;
 }) {
-  const creatures = entries.filter(
-    (e): e is Extract<DiscardEntry, { kind: "creature" | "trainer" }> => e.kind === "creature" || e.kind === "trainer"
+  const fighters = entries.filter(
+    (e): e is Extract<DiscardEntry, { kind: "fighter" | "trainer" }> => e.kind === "fighter" || e.kind === "trainer"
   );
   const energyCount = entries.filter((e) => e.kind === "energy").length;
 
@@ -575,10 +582,10 @@ function DiscardModal({
         </div>
         <p className="muted small">{energyCount} energy discarded</p>
         <div className="card-grid card-grid--sm">
-          {creatures.map((e, i) => (
+          {fighters.map((e, i) => (
             <Card key={i} card={e.card} size="sm" />
           ))}
-          {creatures.length === 0 && <p className="muted">No discarded cards.</p>}
+          {fighters.length === 0 && <p className="muted">No discarded cards.</p>}
         </div>
       </motion.div>
     </motion.div>
@@ -616,12 +623,12 @@ function statusHint(opts: {
   humanActing: boolean;
 }): string {
   if (opts.winner) return "Battle over.";
-  if (opts.mustPromote) return "Choose your new active mon from the bench.";
+  if (opts.mustPromote) return "Choose your new active fighter from the bench.";
   if (!opts.humanActing) return "Opponent's turn…";
   const tips = [
     "Drag Basics from your hand to the bench",
-    "drag energy onto a mon",
-    "click your active mon to attack or retreat",
+    "drag energy onto a fighter",
+    "click your active fighter to attack or retreat",
   ];
   return tips.join(" · ") + ".";
 }
@@ -633,7 +640,6 @@ export function Battle() {
   const batchStart = useBattleStore((st) => st.batchStart);
   const gameId = useBattleStore((st) => st.gameId);
   const dispatch = useBattleStore((st) => st.dispatch);
-  const newGame = useBattleStore((st) => st.newGame);
   const setView = useAppView((st) => st.setView);
 
   const fx = useBattleEvents(state.events, batchStart, busy, gameId);
@@ -653,14 +659,14 @@ export function Battle() {
       ? moves.filter((move) => targeting.moves.some((candidate) => JSON.stringify(candidate) === JSON.stringify(move))) : [];
   const targetingActive = targetMoves.length > 0;
   const uidForMove = (move: Move): string | undefined => {
-    if (move.type === "playTrainer" || move.type === "attachEnergy") return move.targetUid;
+    if (move.type === "playTrainer" || move.type === "attachEnergy" || move.type === "evolve" || move.type === "attack") return move.targetUid;
     if (move.type === "retreat" || move.type === "promote") return human.bench[move.benchIndex]?.uid;
     return undefined;
   };
   const targetUids = new Set(targetMoves.map(uidForMove).filter((uid): uid is string => !!uid));
   useEffect(() => {
     if (!targetingActive) return;
-    document.querySelector<HTMLElement>(".creature--targetable .card")?.focus();
+    document.querySelector<HTMLElement>(".fighter--targetable .card")?.focus();
     const cancel = (event: KeyboardEvent) => { if (event.key === "Escape") setTargeting(null); };
     document.addEventListener("keydown", cancel);
     return () => document.removeEventListener("keydown", cancel);
@@ -689,14 +695,15 @@ export function Battle() {
   // Show the result only once the final knock-out has finished animating.
   const showResult = !!state.winner && !busy;
   const selectedPlayer = selected?.owner ? state.players[selected.owner] : undefined;
-  const selectedMon = selectedPlayer ? [selectedPlayer.active, ...selectedPlayer.bench].find((mon) => mon?.uid === selected?.uid) ?? undefined : undefined;
-  const selectedActive = !!selectedMon && selected?.owner === HUMAN && human.active?.uid === selectedMon.uid;
-  const selectionValid = selected?.gameId === gameId && (selected.uid ? !!selectedMon : human.hand[selected.handIndex ?? -1] === selected.card);
+  const selectedFighter = selectedPlayer ? [selectedPlayer.active, ...selectedPlayer.bench].find((fighter) => fighter?.uid === selected?.uid) ?? undefined : undefined;
+  const selectedActive = !!selectedFighter && selected?.owner === HUMAN && human.active?.uid === selectedFighter.uid;
+  const selectionValid = selected?.gameId === gameId && (selected.uid ? !!selectedFighter : human.hand[selected.handIndex ?? -1] === selected.card);
   const selectedMoves = moves.filter((move) => {
     if (!selected || selected.owner === AI) return false;
+    if (move.type === "useAbility") return move.targetUid === selectedFighter?.uid;
     if (move.type === "attack" || move.type === "retreat") return selectedActive;
-    if (move.type === "attachEnergy") return move.targetUid === selectedMon?.uid;
-    if (move.type === "playBasic" || move.type === "playTrainer") return move.handIndex === selected.handIndex;
+    if (move.type === "attachEnergy") return move.targetUid === selectedFighter?.uid;
+    if (move.type === "playBasic" || move.type === "playTrainer" || move.type === "evolve") return selected.handIndex !== undefined && move.handIndex === selected.handIndex;
     return false;
   });
   function performMove(move: Move) { setSelected(null); setTargeting(null); dispatch(move); }
@@ -704,13 +711,13 @@ export function Battle() {
     setSelected(null);
     setTargeting({ gameId, moves: candidates, label });
   }
-  function inspectMon(mon: CreatureInPlay, owner: PlayerId) {
+  function inspectFighter(fighter: FighterInPlay, owner: PlayerId) {
     if (targetingActive) {
-      const move = targetMoves.find((candidate) => uidForMove(candidate) === mon.uid);
+      const move = targetMoves.find((candidate) => uidForMove(candidate) === fighter.uid);
       if (move) performMove(move);
       return;
     }
-    setSelected({ card: mon.card, uid: mon.uid, owner, gameId });
+    setSelected({ card: fighter.card, uid: fighter.uid, owner, gameId });
   }
 
 
@@ -722,7 +729,7 @@ export function Battle() {
       {fx.coin && <div className="coin-flip" role="status" aria-live="polite">
         <div className="coin-flip__disc" key={fx.coin.key}>{fx.coin.result === "heads" ? "H" : "T"}</div>
         <strong>Flip {fx.coin.flip}: {fx.coin.result}</strong>
-        <span>Blitz bonus: +{fx.coin.bonus} damage</span>
+        <span>{fx.coin.reason === "burn" ? `Burn check: ${fx.coin.result === "tails" ? "Burn removed" : "Burn remains"}` : `${fx.coin.attackName ?? "Attack"} bonus: +${fx.coin.bonus} damage`}</span>
       </div>}
       {logOpen && <BattleLog key={gameId} lines={state.log} onClose={() => setLogOpen(false)} />}
 
@@ -738,7 +745,7 @@ export function Battle() {
           >
             {state.winner === HUMAN ? "You win! 🎉" : "You lose."}
             <div className="banner__actions">
-              <button className="btn btn--new" onClick={() => newGame()}>
+              <button className="btn btn--new" onClick={() => setView("deckSelection")}>
                 Play again
               </button>
               <button className="btn" onClick={() => setView("builder")}>
@@ -754,15 +761,15 @@ export function Battle() {
         isTurn={state.turnPlayer === AI}
         fx={fx}
         turnNumber={state.turnNumber}
-        onInspect={(mon) => inspectMon(mon, AI)}
+        onInspect={(fighter) => inspectFighter(fighter, AI)}
         onInspectDiscard={() => setInspect("ai")}
       />
 
       <aside className="battle-controls">
         <div className="battle-controls__turn">Turn {state.turnNumber}</div>
         <button className="btn btn--sm" onClick={() => setLogOpen(true)}>Battle log</button>
-        <button className="btn btn--sm" onClick={() => { setTargeting(null); newGame(); }}>New game</button>
-        <p className="battle__hint" aria-live="polite">{targetingActive ? mustPromote ? "Choose a highlighted benched mon as your new active." : `${targeting?.label}: choose a highlighted mon.` : hint}
+        <button className="btn btn--sm" onClick={() => { setTargeting(null); setView("deckSelection"); }}>New game</button>
+        <p className="battle__hint" aria-live="polite">{targetingActive ? mustPromote ? "Choose a highlighted benched fighter as your new active." : `${targeting?.label}: choose a highlighted fighter.` : hint}
           {targetingActive && !mustPromote && <button className="btn btn--sm" onClick={() => setTargeting(null)}>Cancel</button>}
         </p>
         <div className="endturn">
@@ -784,7 +791,7 @@ export function Battle() {
         fx={fx}
         turnNumber={state.turnNumber}
         dnd={dnd}
-        onInspect={(mon) => inspectMon(mon, HUMAN)}
+        onInspect={(fighter) => inspectFighter(fighter, HUMAN)}
         onInspectDiscard={() => setInspect("human")}
       />
 
@@ -792,8 +799,8 @@ export function Battle() {
         onInspect={(card, handIndex) => { if (!targetingActive) setSelected({ card, handIndex, gameId }); }} />
 
       {!targetingActive && selected && selectionValid && (
-        <MonDetails key={selected.uid ?? `hand-${selected.handIndex}`} card={selectedMon?.card ?? selected.card}
-          mon={selectedMon} active={selectedActive} moves={selectedMoves} bench={human.bench}
+        <FighterDetails key={selected.uid ?? `hand-${selected.handIndex}`} card={selectedFighter?.card ?? selected.card}
+          fighter={selectedFighter} active={selectedActive} moves={selectedMoves} bench={human.bench}
           onMove={performMove} onClose={() => setSelected(null)} onChooseTargets={chooseTargets} />
       )}
 

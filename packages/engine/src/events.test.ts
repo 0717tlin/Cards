@@ -80,12 +80,12 @@ describe("battle events", () => {
     ]);
   });
 
-  it("playBasic emits creatureBenched with the new creature's uid", () => {
+  it("playBasic emits fighterBenched with the new fighter's uid", () => {
     const s = newBattle(3);
     const play = getLegalMoves(s).find((m) => m.type === "playBasic")!;
     const { next, events } = step(s, play);
     const benched = next.players[s.turnPlayer].bench.at(-1)!;
-    expect(events).toEqual([{ kind: "creatureBenched", player: s.turnPlayer, uid: benched.uid }]);
+    expect(events).toEqual([{ kind: "fighterBenched", player: s.turnPlayer, uid: benched.uid }]);
   });
 
   it("attack emits attackUsed then damageDealt with the right amount", () => {
@@ -108,10 +108,10 @@ describe("battle events", () => {
       BattleEvent,
       { kind: "knockedOut" }
     >;
-    expect(ko.creature.damage).toBeGreaterThanOrEqual(ko.creature.card.hp);
-    expect(ko.pointsAwarded).toBe(ko.creature.card.isEx ? 2 : 1);
-    // The snapshot is of a creature that is no longer active.
-    expect(found!.next.players[ko.player].active?.uid).not.toBe(ko.creature.uid);
+    expect(ko.fighter.damage).toBeGreaterThanOrEqual(ko.fighter.card.hp);
+    expect(ko.pointsAwarded).toBe(ko.fighter.card.isEx ? 2 : 1);
+    // The snapshot is of a fighter that is no longer active.
+    expect(found!.next.players[ko.player].active?.uid).not.toBe(ko.fighter.uid);
   });
 
   it("promotion emits promoted", () => {

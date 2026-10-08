@@ -28,6 +28,21 @@ afterEach(() => {
 });
 
 describe("paced battle store", () => {
+  it("starts a clean match after a finished game", () => {
+    startAndSettle(seedWhereFirst(HUMAN));
+    const finished = structuredClone(store.getState().state);
+    finished.winner = HUMAN;
+    store.setState({ state: finished, busy: false, humanMoves: [] });
+    const previousId = store.getState().gameId;
+    store.getState().newGame({ seed: seedWhereFirst(HUMAN) });
+    vi.runAllTimers();
+    expect(store.getState().gameId).toBeGreaterThan(previousId);
+    expect(store.getState().state.winner).toBeNull();
+    expect(store.getState().state.players.P1.points).toBe(0);
+    expect(store.getState().state.players.P2.points).toBe(0);
+    expect(store.getState().state.turnNumber).toBe(1);
+    expect(store.getState().humanMoves.length).toBeGreaterThan(0);
+  });
   it("paces an AI-first opening one step at a time", () => {
     const seed = seedWhereFirst(AI);
     store.getState().newGame({ seed });

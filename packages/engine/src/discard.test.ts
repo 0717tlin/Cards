@@ -20,8 +20,8 @@ function newBattle(seed: number): BattleState {
 function countEnergy(discard: DiscardEntry[]): number {
   return discard.filter((e) => e.kind === "energy").length;
 }
-function countCreatures(discard: DiscardEntry[]): number {
-  return discard.filter((e) => e.kind === "creature").length;
+function countFighters(discard: DiscardEntry[]): number {
+  return discard.filter((e) => e.kind === "fighter").length;
 }
 
 describe("discard pile", () => {
@@ -43,18 +43,18 @@ describe("discard pile", () => {
     expect(countEnergy(s.players[actor].discard)).toBe(1);
   });
 
-  it("KO sends the creature and its energy to the owner's discard", () => {
-    // Play a full game; by the end, KOs must have produced creature discards.
+  it("KO sends the fighter and its energy to the owner's discard", () => {
+    // Play a full game; by the end, KOs must have produced fighter discards.
     let s = newBattle(11);
     let guard = 0;
     while (!getWinner(s) && guard < 5000) {
       s = applyMove(s, chooseMove(s));
       guard++;
     }
-    const totalCreatureDiscards =
-      countCreatures(s.players.P1.discard) + countCreatures(s.players.P2.discard);
+    const totalFighterDiscards =
+      countFighters(s.players.P1.discard) + countFighters(s.players.P2.discard);
     // A game won on points requires at least a few KOs.
-    expect(totalCreatureDiscards).toBeGreaterThan(0);
+    expect(totalFighterDiscards).toBeGreaterThan(0);
   });
 
   it("discard is deterministic for a fixed seed", () => {

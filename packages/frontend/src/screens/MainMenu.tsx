@@ -1,12 +1,10 @@
 import { motion, type Variants } from "motion/react";
-import { CARD_POOL, ALL_CARD_POOL, DECK_PLAYER, type CreatureCard } from "@card-game/engine";
+import { CARD_POOL, ALL_CARD_POOL, type FighterCard } from "@card-game/engine";
 import { Card } from "../cards/Card";
 import { useAppView } from "../navigation/useAppView";
-import { useBattleStore } from "../store/battleStore";
-import { useDeckBuilder } from "../deck/useDeckBuilder";
 
 /** Decorative fan of cards shown behind the title. */
-const FAN: CreatureCard[] = [CARD_POOL.glacierjaw!, CARD_POOL.verdantia!, CARD_POOL.cinderhorn!];
+const FAN: FighterCard[] = [CARD_POOL["islam-makhachev-ex"]!, CARD_POOL["do-bronx"]!, CARD_POOL["ilia-topuria"]!];
 const CARD_COUNT = Object.keys(ALL_CARD_POOL).length;
 
 // Staggered entrance: fan cards deal in, then title, then the buttons.
@@ -25,17 +23,9 @@ const deal: Variants = {
 
 export function MainMenu() {
   const setView = useAppView((s) => s.setView);
-  const newGame = useBattleStore((s) => s.newGame);
-  // Subscribe to the selection so the deck label updates if it changes.
-  useDeckBuilder((s) => s.selection);
-  const deckBuilder = useDeckBuilder.getState();
-  const usingCustomDeck = deckBuilder.validation().legal;
 
   function startNewGame() {
-    // Battle with the deck from the Deck Builder if it's legal, else the starter deck.
-    const humanDeck = deckBuilder.build() ?? DECK_PLAYER;
-    newGame({ humanDeck });
-    setView("battle");
+    setView("deckSelection");
   }
 
   const hover = { y: -2 };
@@ -63,6 +53,10 @@ export function MainMenu() {
       </div>
 
       <div className="menu__actions">
+        <motion.button className="menu__btn" onClick={() => setView("packs")} variants={rise} whileHover={hover} whileTap={tap}>
+          <span className="menu__btn-icon">🎁</span>
+          <span className="menu__btn-text"><strong>Open a Pack</strong><small>Reveal five random cards</small></span>
+        </motion.button>
         <motion.button
           className="menu__btn menu__btn--primary"
           onClick={startNewGame}
@@ -73,7 +67,7 @@ export function MainMenu() {
           <span className="menu__btn-icon">⚔️</span>
           <span className="menu__btn-text">
             <strong>New Game</strong>
-            <small>{usingCustomDeck ? "Using your deck" : "Using the starter deck"}</small>
+            <small>Choose a saved deck</small>
           </span>
         </motion.button>
         <motion.button

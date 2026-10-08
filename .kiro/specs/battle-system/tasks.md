@@ -1,7 +1,7 @@
 # Battle System — Implementation Plan
 
 - [ ] 1. Define engine domain types and public API skeleton
-  - Create `types.ts` with `PlayerId`, `EnergyType`, `AttackDef`, `CreatureCard`, `CreatureInPlay`, `PlayerState`, `Phase`, `BattleState`, and the `Move` union.
+  - Create `types.ts` with `PlayerId`, `EnergyType`, `AttackDef`, `FighterCard`, `FighterInPlay`, `PlayerState`, `Phase`, `BattleState`, and the `Move` union.
   - Stub `index.ts` to re-export types and the four API functions.
   - _Requirements: R8_
 
@@ -11,7 +11,7 @@
   - _Requirements: R1.1, R1.2_
 
 - [ ] 3. Build the original card pool and two fixed decks
-  - `cards.ts`: ~8–12 original Basic creatures (original names/types), including at least one EX and clear weakness relationships. Two predefined 20-card decks (player, AI).
+  - `cards.ts`: ~8–12 original Basic fighters (original names/types), including at least one EX and clear weakness relationships. Two predefined 20-card decks (player, AI).
   - _Requirements: R1, R5, R7_
 
 - [ ] 4. Implement setup (`createBattle`)
@@ -53,7 +53,7 @@
   - _Requirements: R10_
 
 - [ ] 12. Frontend battle UI
-  - Components: `Board`, `CreatureView` (HP bar, energy pips, EX badge), `Hand`, `Controls` (buttons from legal moves), `ResultBanner`. Start a battle on load; play against AI end-to-end; show result.
+  - Components: `Board`, `FighterView` (HP bar, energy pips, EX badge), `Hand`, `Controls` (buttons from legal moves), `ResultBanner`. Start a battle on load; play against AI end-to-end; show result.
   - Manual verification: full game playable to a win/loss in the browser.
   - _Requirements: R10_
 ```

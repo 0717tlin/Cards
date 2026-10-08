@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { canPayCost, computeDamage, isKnockedOut, pointsForKo } from "./combat.js";
-import type { CreatureInPlay } from "./types.js";
+import type { FighterInPlay } from "./types.js";
 
-function inPlay(over: Partial<CreatureInPlay["card"]>, attached: CreatureInPlay["attached"], damage = 0): CreatureInPlay {
+function inPlay(over: Partial<FighterInPlay["card"]>, attached: FighterInPlay["attached"], damage = 0): FighterInPlay {
   return {
     uid: "x#1",
     damage,

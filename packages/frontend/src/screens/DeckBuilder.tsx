@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ALL_CARD_POOL as CARD_POOL, isCreatureCard, type CardDefinition } from "@card-game/engine";
-import { Card, Pop } from "../cards/Card";
+import { ALL_CARD_POOL as CARD_POOL, isFighterCard, type CardDefinition } from "@card-game/engine";
+import { Card, Pop, EnergyPip } from "../cards/Card";
 import { CardZoom } from "../cards/CardZoom";
 import { useDeckBuilder, DECK_SIZE, COPY_LIMIT } from "../deck/useDeckBuilder";
 import { useBattleStore } from "../store/battleStore";
 import { useAppView } from "../navigation/useAppView";
+import { ENERGY_OPTIONS, useSavedDecks } from "../deck/useSavedDecks";
 
 const ALL_CARDS: CardDefinition[] = Object.values(CARD_POOL);
 
@@ -16,6 +17,18 @@ export function DeckBuilder() {
   const clear = useDeckBuilder((s) => s.clear);
   const build = useDeckBuilder((s) => s.build);
   const validation = useDeckBuilder((s) => s.validation)();
+  const name = useDeckBuilder((s) => s.name);
+  const setName = useDeckBuilder((s) => s.setName);
+  const energyTypes = useDeckBuilder((s) => s.energyTypes);
+  const toggleEnergy = useDeckBuilder((s) => s.toggleEnergy);
+  const save = useSavedDecks((s) => s.save);
+  const saveError = useSavedDecks((s) => s.error);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { setSaved(false); }, [selection, name, energyTypes]);
+  function saveDeck() {
+    const id = save(useDeckBuilder.getState().editingId, name, selection, energyTypes);
+    if (id) { useDeckBuilder.setState({editingId:id}); setSaved(true); }
+  }
 
   const newGame = useBattleStore((s) => s.newGame);
   const setView = useAppView((s) => s.setView);
@@ -34,8 +47,8 @@ export function DeckBuilder() {
 
   function startBattle() {
     const deck = build();
-    if (!deck) return;
-    newGame({ humanDeck: deck });
+    if (!deck || !energyTypes.length) return;
+    newGame({ humanDeck: deck, energyTypes });
     setView("battle");
   }
 
@@ -50,11 +63,22 @@ export function DeckBuilder() {
           <button className="btn" onClick={clear} disabled={validation.total === 0}>
             Clear
           </button>
-          <button className="btn btn--new" onClick={startBattle} disabled={!validation.legal}>
+          <button className="btn btn--new" onClick={startBattle} disabled={!validation.legal || !energyTypes.length}>
             Battle with this deck
           </button>
         </div>
       </div>
+      <div className="deck-save">
+        <label>Deck name <input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} /></label>
+        <button className="btn btn--new" disabled={!validation.legal || !name.trim() || !energyTypes.length} onClick={saveDeck}>Save deck</button>
+        <button className="btn" onClick={() => setView("deckSelection")}>Saved decks</button>
+        {saved && <span className="ok small" role="status">Deck saved.</span>}
+        {saveError && <span className="warn small" role="alert">{saveError}</span>}
+      </div>
+      <fieldset className="deck-energies"><legend>Energy types</legend>
+        {ENERGY_OPTIONS.map(type => <label key={type}><input type="checkbox" checked={energyTypes.includes(type)} onChange={() => toggleEnergy(type)} /><EnergyPip type={type} />{type === "lightning" ? "Electric" : type[0]!.toUpperCase() + type.slice(1)}</label>)}
+        <p className={energyTypes.length ? "muted small" : "warn small"}>{energyTypes.length ? "One selected type is generated each turn. Multiple types have an equal random chance." : "Select at least one energy type."}</p>
+      </fieldset>
 
       {validation.issues.length > 0 && (
         <ul className="issues">
@@ -73,7 +97,7 @@ export function DeckBuilder() {
           <div className="card-grid card-grid--sm">
             {ALL_CARDS.map((c, i) => {
               const count = selection[c.id] ?? 0;
-              const isBasic = isCreatureCard(c) && c.stage === "basic";
+              const isBasic = isFighterCard(c) && c.stage === "basic";
               return (
                 <motion.div
                   key={c.id}
@@ -103,8 +127,8 @@ export function DeckBuilder() {
                 >
                   <Card card={c} size="sm" onClick={() => { if (held.current) { held.current = false; return; } add(c.id); }} />
                   <div className="pool-card__meta">
-                    <span className={isBasic || !isCreatureCard(c) ? "muted small" : "warn small"}>
-                      {isCreatureCard(c) ? (isBasic ? "basic" : `${c.stage} · not battle-legal yet`) : c.kind}
+                    <span className="muted small">
+                      {isFighterCard(c) ? (isBasic ? "basic" : `${c.stage} · evolution`) : c.kind}
                     </span>
                     {count > 0 && (
                       <Pop value={count} className="count-badge">

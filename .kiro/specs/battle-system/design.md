@@ -50,8 +50,8 @@ export interface AttackDef {
   // effects deferred; not modeled this milestone
 }
 
-export interface CreatureCard {
-  id: string;              // definition id (e.g. "emberpup")
+export interface FighterCard {
+  id: string;              // definition id (e.g. "ilia-topuria")
   name: string;
   type: EnergyType;
   hp: number;
@@ -62,19 +62,19 @@ export interface CreatureCard {
   stage: "basic";          // only basics this milestone
 }
 
-export interface CreatureInPlay {
+export interface FighterInPlay {
   uid: string;             // unique per instance in a battle
-  card: CreatureCard;
+  card: FighterCard;
   damage: number;          // accumulated damage; KO when damage >= card.hp
-  attached: EnergyType[];  // energy attached to this creature
+  attached: EnergyType[];  // energy attached to this fighter
 }
 
 export interface PlayerState {
   id: PlayerId;
-  deck: CreatureCard[];    // remaining library (top = index 0)
-  hand: CreatureCard[];
-  active: CreatureInPlay | null;
-  bench: CreatureInPlay[]; // max length 3
+  deck: FighterCard[];    // remaining library (top = index 0)
+  hand: FighterCard[];
+  active: FighterInPlay | null;
+  bench: FighterInPlay[]; // max length 3
   energyType: EnergyType;  // this deck's energy zone output
   pendingEnergy: EnergyType | null; // energy generated this turn, not yet attached
   points: number;
@@ -99,17 +99,17 @@ export interface BattleState {
 
 ```ts
 export type Move =
-  | { type: "attachEnergy"; targetUid: string }      // attach pendingEnergy to a creature
+  | { type: "attachEnergy"; targetUid: string }      // attach pendingEnergy to a fighter
   | { type: "playBasic"; handIndex: number }          // hand -> empty bench slot
-  | { type: "retreat"; benchIndex: number }           // swap active with a benched creature, pay cost
+  | { type: "retreat"; benchIndex: number }           // swap active with a benched fighter, pay cost
   | { type: "attack"; attackId: string }              // active attacks; ends turn
   | { type: "pass" }                                  // end turn with no attack
   | { type: "promote"; benchIndex: number };          // resolve awaitPromotion phase
 ```
 
 `getLegalMoves` returns only entries valid right now. Examples:
-- `attachEnergy` appears only if `pendingEnergy != null` and at least one creature exists to receive it.
-- `playBasic` appears per hand index that is a Basic creature, only if bench has an open slot.
+- `attachEnergy` appears only if `pendingEnergy != null` and at least one fighter exists to receive it.
+- `playBasic` appears per hand index that is a Basic fighter, only if bench has an open slot.
 - `attack` appears per attack whose cost is satisfied by the active's attached energy.
 - In `awaitPromotion` phase, ONLY `promote` moves are legal (for the player who must promote), regardless of whose turn it is.
 
@@ -129,7 +129,7 @@ Deterministic `mulberry32(seed)` producing a function that returns [0,1). Helper
 An attack cost is a multiset of `EnergyType`. `colorless` entries are satisfied by any energy. Algorithm: first match each specific (non-colorless) required type against the attached energy, removing matches; then require that the remaining attached count covers the number of colorless entries. Returns boolean.
 
 ### Damage (combat.ts)
-`damage = attack.damage + (defender.card.weakness === attacker.card.type ? 20 : 0)`. Apply to `defender.damage`. If `defender.damage >= defender.card.hp`, it's KO'd: attacker gains `card.isEx ? 2 : 1` points; KO'd creature (and its energy) is removed; if it was the active, the owning player enters `awaitPromotion` if they have bench, else they lose.
+`damage = attack.damage + (defender.card.weakness === attacker.card.type ? 20 : 0)`. Apply to `defender.damage`. If `defender.damage >= defender.card.hp`, it's KO'd: attacker gains `card.isEx ? 2 : 1` points; KO'd fighter (and its energy) is removed; if it was the active, the owning player enters `awaitPromotion` if they have bench, else they lose.
 
 ### Turn flow (turn.ts)
 - `beginTurn(state)`: increment turnNumber, set pendingEnergy (unless turn-1 exception), draw 1 (unless turn-1 exception), clear per-turn flags.
@@ -144,7 +144,7 @@ An attack cost is a multiset of `EnergyType`. `colorless` entries are satisfied 
 
 ## AI (in engine or ai module — placed in engine/src/ai.ts for reuse)
 `chooseMove(state): Move` heuristic, all via `getLegalMoves`:
-1. If must promote → promote the highest-HP bench creature.
+1. If must promote → promote the highest-HP bench fighter.
 2. Attach energy to the active if not yet attached.
 3. If any attack is legal → use the highest-damage legal attack (ends turn).
 4. Else → pass.
@@ -152,7 +152,7 @@ Guaranteed to terminate the AI turn (always ends with attack or pass).
 
 ## Frontend (design)
 - `battleStore` (zustand): holds `BattleState`, exposes `legalMoves`, `dispatch(move)`, and a `runAiTurn()` that loops `chooseMove`/`applyMove` while it's the AI's turn.
-- Components: `<Board/>` (both sides), `<CreatureView/>` (hp bar, energy pips, EX badge), `<Hand/>`, `<Controls/>` (buttons generated from legal moves), `<ResultBanner/>`.
+- Components: `<Board/>` (both sides), `<FighterView/>` (hp bar, energy pips, EX badge), `<Hand/>`, `<Controls/>` (buttons generated from legal moves), `<ResultBanner/>`.
 - After each human move, if the turn passed to AI, the store runs the AI turn, then re-renders.
 
 ## Testing strategy
@@ -170,5 +170,5 @@ Vitest in the engine, exercised through the public API:
 - Turn-1 starter: no draw, no energy.
 - Weakness: +20 flat.
 - Win at 3 points; EX KO = 2.
-- Only Basic creatures; creature cards only (no trainers/items/abilities) this milestone.
+- Only Basic fighters; fighter cards only (no trainers/items/abilities) this milestone.
 - Setup auto-places active only; bench filled during play.

@@ -1,26 +1,218 @@
-// Original creature pool and two fixed decks. All names/creatures are original
-// placeholders — no real Pokemon IP. Basic creatures only this milestone.
+// UFC fighter and trainer card pool, with two fixed starter decks.
 
-import type { CreatureCard, TrainerCard, CardDefinition } from "./types.js";
+import type { FighterCard, TrainerCard, CardDefinition } from "./types.js";
 import type { EnergyType } from "./types.js";
 
 /**
  * Build a card definition. Defaults stage to "basic" and derives the art key
  * from the id (frontend resolves it, falling back to a placeholder).
  */
-function creature(c: Omit<CreatureCard, "stage" | "art"> & Partial<Pick<CreatureCard, "stage" | "art">>): CreatureCard {
-  return { stage: "basic", art: c.id, ...c };
+function fighter(c: Omit<FighterCard, "stage" | "art"> & Partial<Pick<FighterCard, "stage" | "art">>): FighterCard {
+  const rarity = c.rarity ?? (c.isEx ? "epic" : c.id === "ilia-topuria" ? "rare" : c.ability || c.attacks.some((attack) => attack.effects?.length) ? "uncommon" : "common");
+  return { stage: "basic", art: c.id, ...c, rarity };
 }
 
 // --- Card pool -------------------------------------------------------------
 
-export const CARD_POOL: Record<string, CreatureCard> = {
-  merab: creature({
+export const CARD_POOL: Record<string, FighterCard> = {
+  // Lesser-known contenders and veterans; basic attacks deal damage only.
+  "benoit-saint-denis": fighter({
+    id: "benoit-saint-denis", name: "Benoît Saint Denis", type: "fire", hp: 80,
+    weakness: "water", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "bsd-jab", name: "Jab", cost: ["fire"], damage: 20 },
+      { id: "bsd-elbow", name: "Elbow", cost: ["fire", "fire", "colorless"], damage: 50 },
+    ],
+  }),
+  "renato-moicano": fighter({
+    id: "renato-moicano", name: "Renato Moicano", type: "fire", hp: 80,
+    weakness: "water", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "moicano-jab", name: "Jab", cost: ["fire"], damage: 20 },
+      { id: "moicano-high-kick", name: "High Kick", cost: ["fire", "fire", "colorless"], damage: 50 },
+    ],
+  }),
+  "brandon-royval": fighter({
+    id: "brandon-royval", name: "Brandon Royval", type: "water", hp: 50,
+    weakness: "lightning", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "royval-jab", name: "Jab", cost: ["water"], damage: 20 },
+      { id: "royval-knee", name: "Knee", cost: ["water", "water", "colorless"], damage: 40 },
+    ],
+  }),
+  "amir-albazi": fighter({
+    id: "amir-albazi", name: "Amir Albazi", type: "water", hp: 50,
+    weakness: "lightning", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "albazi-jab", name: "Jab", cost: ["water"], damage: 20 },
+      { id: "albazi-cross", name: "Cross", cost: ["water", "water", "colorless"], damage: 40 },
+    ],
+  }),
+  "dan-ige": fighter({
+    id: "dan-ige", name: "Dan Ige", type: "grass", hp: 70,
+    weakness: "fire", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "ige-jab", name: "Jab", cost: ["grass"], damage: 20 },
+      { id: "ige-overhand", name: "Overhand", cost: ["grass", "grass", "colorless"], damage: 50 },
+    ],
+  }),
+  "melquizael-costa": fighter({
+    id: "melquizael-costa", name: "Melquizael Costa", type: "grass", hp: 70,
+    weakness: "fire", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "costa-jab", name: "Jab", cost: ["grass"], damage: 20 },
+      { id: "costa-hook", name: "Hook", cost: ["grass", "grass", "colorless"], damage: 50 },
+    ],
+  }),
+  "tatsuro-taira": fighter({
+    id: "tatsuro-taira", name: "Tatsuro Taira", type: "lightning", hp: 50,
+    weakness: "fighting", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "taira-jab", name: "Jab", cost: ["lightning"], damage: 20 },
+      { id: "taira-roundhouse", name: "Roundhouse Kick", cost: ["lightning", "lightning", "colorless"], damage: 40 },
+    ],
+  }),
+  "sumudaerji": fighter({
+    id: "sumudaerji", name: "Sumudaerji", type: "lightning", hp: 50,
+    weakness: "fighting", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "sumudaerji-jab", name: "Jab", cost: ["lightning"], damage: 20 },
+      { id: "sumudaerji-hook", name: "Hook", cost: ["lightning", "lightning", "colorless"], damage: 40 },
+    ],
+  }),
+  "rinat-fakhretdinov": fighter({
+    id: "rinat-fakhretdinov", name: "Rinat Fakhretdinov", type: "psychic", hp: 90,
+    weakness: "psychic", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "rinat-jab", name: "Jab", cost: ["psychic"], damage: 20 },
+      { id: "rinat-cross", name: "Cross", cost: ["psychic", "psychic", "colorless"], damage: 50 },
+    ],
+  }),
+  "anthony-hernandez": fighter({
+    id: "anthony-hernandez", name: "Anthony Hernandez", type: "psychic", hp: 100,
+    weakness: "psychic", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "hernandez-jab", name: "Jab", cost: ["psychic"], damage: 20 },
+      { id: "hernandez-cross", name: "Cross", cost: ["psychic", "psychic", "colorless"], damage: 50 },
+    ],
+  }),
+  "khalil-rountree": fighter({
+    id: "khalil-rountree", name: "Khalil Rountree Jr.", type: "fighting", hp: 110,
+    weakness: "psychic", isEx: false, retreatCost: 2,
+    attacks: [
+      { id: "rountree-jab", name: "Jab", cost: ["fighting"], damage: 20 },
+      { id: "rountree-kick", name: "Body Kick", cost: ["fighting", "fighting", "colorless"], damage: 40 },
+    ],
+  }),
+  "roman-dolidze": fighter({
+    id: "roman-dolidze", name: "Roman Dolidze", type: "fighting", hp: 100,
+    weakness: "psychic", isEx: false, retreatCost: 2,
+    attacks: [
+      { id: "dolidze-jab", name: "Jab", cost: ["fighting"], damage: 20 },
+      { id: "dolidze-hook", name: "Hook", cost: ["fighting", "fighting", "colorless"], damage: 40 },
+    ],
+  }),
+  "azamat-murzakanov": fighter({
+    id: "azamat-murzakanov", name: "Azamat Murzakanov", type: "fighting", hp: 110,
+    weakness: "psychic", isEx: false, retreatCost: 2,
+    attacks: [
+      { id: "azamat-jab", name: "Jab", cost: ["fighting"], damage: 20 },
+      { id: "azamat-hook", name: "Left Hook", cost: ["fighting", "fighting", "colorless"], damage: 40 },
+    ],
+  }),
+  "sergei-pavlovich": fighter({
+    id: "sergei-pavlovich", name: "Sergei Pavlovich", type: "colorless", hp: 120,
+    weakness: "fighting", isEx: false, retreatCost: 3,
+    attacks: [
+      { id: "pavlovich-jab", name: "Jab", cost: ["colorless"], damage: 20 },
+      { id: "pavlovich-overhand", name: "Overhand", cost: ["colorless", "colorless", "colorless"], damage: 50 },
+    ],
+  }),
+  "sergey-spivak": fighter({
+    id: "sergey-spivak", name: "Sergey Spivak", type: "colorless", hp: 120,
+    weakness: "fighting", isEx: false, retreatCost: 3,
+    attacks: [
+      { id: "spivak-jab", name: "Jab", cost: ["colorless"], damage: 20 },
+      { id: "spivak-overhand", name: "Overhand", cost: ["colorless", "colorless", "colorless"], damage: 50 },
+    ],
+  }),
+  "giga-chikadze": fighter({
+    id: "giga-chikadze", name: "Giga Chikadze", type: "psychic", hp: 60,
+    weakness: "psychic", isEx: false, retreatCost: 1,
+    attacks: [{ id: "giga-kick", name: "Giga Kick", cost: ["psychic", "colorless"], damage: 60 }],
+  }),
+  "caio-borralho": fighter({
+    id: "caio-borralho", name: "Caio Borralho", type: "lightning", hp: 80,
+    weakness: "fighting", isEx: false, retreatCost: 2,
+    attacks: [{ id: "clinch-knee", name: "Clinch Knee", cost: ["lightning"], damage: 20 }],
+  }),
+  "bobby-green": fighter({
+    id: "bobby-green", name: "Bobby Green", type: "grass", hp: 60,
+    rarity: "common",
+    weakness: "fire", isEx: false, retreatCost: 1,
+    attacks: [{ id: "trash-talk", name: "Trash Talk", cost: ["grass"], damage: 0,
+      effects: [{ kind: "burn" }],
+      text: "Your opponent's active fighter is now Burned.",
+    }],
+  }),
+  "khabib-nurmagomedov": fighter({
+    id: "khabib-nurmagomedov", name: "Khabib Nurmagomedov", type: "water", hp: 80,
+    weakness: "lightning", isEx: false, retreatCost: 1,
+    attacks: [{ id: "smother", name: "Smother", cost: ["water"], damage: 20,
+      effects: [{ kind: "increaseRetreatCost", amount: 1 }],
+      text: "During your opponent's next turn, their active fighter's Retreat Cost is 1 Colorless Energy more.",
+    }],
+  }),
+  "islam-makhachev": fighter({
+    id: "islam-makhachev", name: "Islam Makhachev", type: "fighting", hp: 90,
+    weakness: "psychic", isEx: false, retreatCost: 1,
+    attacks: [{ id: "islam-calf-kick", name: "Calf Kick", cost: ["water"], damage: 30,
+      effects: [{ kind: "benchDamageBonus", cardId: "khabib-nurmagomedov", amount: 10 }],
+      text: "If Khabib Nurmagomedov is on your bench, this attack does 10 more damage.",
+    }],
+  }),
+  "umar-nurmagomedov": fighter({
+    id: "umar-nurmagomedov", name: "Umar Nurmagomedov", type: "water", hp: 60,
+    weakness: "lightning", isEx: false, retreatCost: 1,
+    attacks: [{ id: "grapple", name: "Grapple", cost: ["water"], damage: 0,
+      effects: [{ kind: "benchDamage", amount: 20, chooseWithCardId: "khabib-nurmagomedov" }],
+      text: "Do 20 damage to a random fighter on your opponent's bench. If Khabib Nurmagomedov is on your bench, choose a fighter instead.",
+    }],
+  }),
+  "islam-makhachev-ex": fighter({
+    id: "islam-makhachev-ex", name: "Islam Makhachev ex", type: "fighting", hp: 160,
+    weakness: "psychic", isEx: true, retreatCost: 2,
+    attacks: [{ id: "darce", name: "D'arce", cost: ["water", "water", "colorless"], damage: 70,
+      effects: [{ kind: "paralyzeAtOrBelowHp", hp: 30 }],
+      text: "If the opponent's active fighter has 30 HP or less remaining after this attack, it is Paralyzed.",
+    }],
+  }),
+  "charles-oliveira": fighter({
+    id: "charles-oliveira", name: "Charles Oliveira", type: "lightning", hp: 60,
+    rarity: "common",
+    weakness: "fighting", isEx: false, retreatCost: 1,
+    attacks: [{ id: "pull-guard", name: "Pull Guard", cost: ["lightning"], damage: 0,
+      effects: [{ kind: "reduceIncomingDamage", amount: 10 }],
+      text: "During your opponent's next turn, this fighter takes 10 less damage from attacks.",
+    }],
+  }),
+  "do-bronx": fighter({
+    id: "do-bronx", name: "Do Bronx", type: "lightning", hp: 130,
+    weakness: "fighting", isEx: false, retreatCost: 1, stage: "stage1", evolvesFrom: "charles-oliveira",
+    attacks: [
+      { id: "calf-kick", name: "Calf Kick", cost: ["lightning"], damage: 40 },
+      { id: "rear-naked-choke", name: "Rear-Naked Choke", cost: ["lightning", "lightning", "colorless"], damage: 60,
+        effects: [{ kind: "coinDamageBonus", amount: 50 }],
+        text: "Flip a coin. If heads, this attack does 50 more damage.",
+      },
+    ],
+  }),
+  merab: fighter({
     id: "merab", name: "Merab", type: "colorless", hp: 80,
     weakness: "fighting", isEx: false, retreatCost: 1,
-    attacks: [{ id: "single-leg", name: "Single leg", cost: ["colorless"], damage: 20 }],
+    attacks: [{ id: "single-leg", name: "Single Leg", cost: ["colorless"], damage: 20 }],
   }),
-  "anshul-jubli": creature({
+  "anshul-jubli": fighter({
     id: "anshul-jubli", name: "Anshul Jubli", type: "grass", hp: 60,
     weakness: "fire", isEx: false, retreatCost: 1,
     attacks: [
@@ -28,15 +220,15 @@ export const CARD_POOL: Record<string, CreatureCard> = {
       { id: "do-not-redeem", name: "DO NOT REDEEM!!!", cost: ["colorless", "colorless"], damage: 20 },
     ],
   }),
-  "tommy-mcmillan": creature({
-    id: "tommy-mcmillan", name: "Tommy mcmillan", type: "colorless", hp: 80,
+  "tommy-mcmillan": fighter({
+    id: "tommy-mcmillan", name: "Tommy McMillan", type: "colorless", hp: 80,
     weakness: "fighting", isEx: false, retreatCost: 1,
     attacks: [{ id: "blitz", name: "Blitz", cost: ["colorless"], damage: 10,
       effects: [{ kind: "flipUntilTails", amount: 10 }],
       text: "Flip a coin until you get tails. This attack does 10 more damage for each heads.",
     }],
   }),
-  "cm-punk": creature({
+  "cm-punk": fighter({
     id: "cm-punk", name: "CM Punk", type: "colorless", hp: 50,
     weakness: "fighting", isEx: false, retreatCost: 1,
     attacks: [
@@ -44,7 +236,19 @@ export const CARD_POOL: Record<string, CreatureCard> = {
       { id: "go-to-sleep", name: "Go To Sleep", cost: ["colorless", "colorless", "colorless"], damage: 30 },
     ],
   }),
-  "ilia-topuria": creature({
+  "paddy-pimblett": fighter({
+    id: "paddy-pimblett", name: "Paddy Pimblett", type: "fire", hp: 90,
+    ability: {
+      name: "Fattening Up",
+      text: "Once during your turn, you may discard a Fire Energy attached to this fighter to heal 20 damage from it.",
+      effect: { kind: "discardEnergyToHeal", energy: "fire", amount: 20 },
+    },
+    weakness: "water", isEx: false, retreatCost: 1,
+    attacks: [
+      { id: "paddy-jab", name: "Jab", cost: ["fire"], damage: 30 },
+    ],
+  }),
+  "ilia-topuria": fighter({
     id: "ilia-topuria",
     name: "Ilia Topuria",
     type: "fire",
@@ -60,186 +264,46 @@ export const CARD_POOL: Record<string, CreatureCard> = {
         cost: ["colorless", "colorless"],
         damage: 50,
         effects: [{ kind: "damagePerAttachedEnergy", energy: "fire", amount: 10 }],
-        text: "This attack does 10 more damage for each Fire Energy attached to this mon.",
+        text: "This attack does 10 more damage for each Fire Energy attached to this fighter.",
       },
     ],
   }),
-  emberpup: creature({
-    id: "emberpup",
-    name: "Emberpup",
-    type: "fire",
-    hp: 60,
-    weakness: "water",
-    isEx: false,
-    retreatCost: 1,
-    attacks: [
-      { id: "ember-nip", name: "Ember Nip", cost: ["fire"], damage: 20 },
-      { id: "flare-rush", name: "Flare Rush", cost: ["fire", "colorless"], damage: 40 },
-    ],
-  }),
-  cinderhorn: creature({
-    id: "cinderhorn",
-    name: "Cinderhorn",
-    type: "fire",
-    hp: 110,
-    weakness: "water",
-    isEx: true,
-    retreatCost: 2,
-    attacks: [
-      { id: "gore", name: "Gore", cost: ["fire", "colorless"], damage: 50 },
-      { id: "inferno-charge", name: "Inferno Charge", cost: ["fire", "fire", "colorless"], damage: 90 },
-    ],
-  }),
-  tidefin: creature({
-    id: "tidefin",
-    name: "Tidefin",
-    type: "water",
-    hp: 70,
-    weakness: "lightning",
-    isEx: false,
-    retreatCost: 1,
-    attacks: [
-      { id: "splash", name: "Splash", cost: ["water"], damage: 20 },
-      { id: "tidal-slam", name: "Tidal Slam", cost: ["water", "colorless"], damage: 40 },
-    ],
-  }),
-  glacierjaw: creature({
-    id: "glacierjaw",
-    name: "Glacierjaw",
-    type: "water",
-    hp: 120,
-    weakness: "lightning",
-    isEx: true,
-    retreatCost: 3,
-    attacks: [
-      { id: "frost-bite", name: "Frost Bite", cost: ["water", "colorless"], damage: 50 },
-      { id: "deluge", name: "Deluge", cost: ["water", "water", "colorless"], damage: 100 },
-    ],
-  }),
-  sparkmouse: creature({
-    id: "sparkmouse",
-    name: "Sparkmouse",
-    type: "lightning",
-    hp: 60,
-    weakness: "fighting",
-    isEx: false,
-    retreatCost: 1,
-    attacks: [
-      { id: "zap", name: "Zap", cost: ["lightning"], damage: 20 },
-      { id: "thunder-jolt", name: "Thunder Jolt", cost: ["lightning", "colorless"], damage: 40 },
-    ],
-  }),
-  leafling: creature({
-    id: "leafling",
-    name: "Leafling",
-    type: "grass",
-    hp: 70,
-    weakness: "fire",
-    isEx: false,
-    retreatCost: 1,
-    attacks: [
-      { id: "vine-whip", name: "Vine Whip", cost: ["grass"], damage: 20 },
-      { id: "razor-leaf", name: "Razor Leaf", cost: ["grass", "colorless"], damage: 40 },
-    ],
-  }),
-  mystifox: creature({
-    id: "mystifox",
-    name: "Mystifox",
-    type: "psychic",
-    hp: 70,
-    weakness: "psychic",
-    isEx: false,
-    retreatCost: 1,
-    attacks: [
-      { id: "confuse", name: "Confuse", cost: ["psychic"], damage: 20 },
-      { id: "mind-blast", name: "Mind Blast", cost: ["psychic", "colorless"], damage: 40 },
-    ],
-  }),
-  boulderfist: creature({
-    id: "boulderfist",
-    name: "Boulderfist",
-    type: "fighting",
-    hp: 90,
-    weakness: "psychic",
-    isEx: false,
-    retreatCost: 2,
-    attacks: [
-      { id: "jab", name: "Jab", cost: ["fighting"], damage: 20 },
-    ],
-  }),
 
-  // --- Evolution-line examples (data + viewer only this milestone) ----------
-  // These demonstrate the stage/ability/evolvesFrom fields. Evolution is not
-  // playable in battle yet, so they are NOT in the fixed decks.
-  sproutkit: creature({
-    id: "sproutkit",
-    name: "Sproutkit",
-    type: "grass",
-    hp: 60,
-    weakness: "fire",
-    isEx: false,
-    retreatCost: 1,
-    attacks: [{ id: "tackle", name: "Tackle", cost: ["colorless"], damage: 10 }],
-  }),
-  bloomcat: creature({
-    id: "bloomcat",
-    name: "Bloomcat",
-    type: "grass",
-    hp: 90,
-    weakness: "fire",
-    isEx: false,
-    retreatCost: 1,
-    stage: "stage1",
-    evolvesFrom: "sproutkit",
-    attacks: [{ id: "leaf-slash", name: "Leaf Slash", cost: ["grass", "colorless"], damage: 40 }],
-  }),
-  verdantia: creature({
-    id: "verdantia",
-    name: "Verdantia",
-    type: "grass",
-    hp: 150,
-    weakness: "fire",
-    isEx: true,
-    retreatCost: 2,
-    stage: "stage2",
-    evolvesFrom: "bloomcat",
-    ability: {
-      name: "Photosynthesis",
-      text: "Once during your turn, you may attach 1 extra energy to this creature.",
-    },
-    attacks: [
-      { id: "solar-beam", name: "Solar Beam", cost: ["grass", "grass", "colorless"], damage: 110 },
-    ],
-  }),
 };
 
 export const TRAINER_POOL: Record<string, TrainerCard> = {
-  bandages: { id: "bandages", name: "Bandages", kind: "item", text: "Heal 20 damage from 1 of your mons.", effect: { kind: "heal", amount: 20, target: "anyOwn" } },
-  "footwork-drill": { id: "footwork-drill", name: "Footwork Drill", kind: "item", text: "During this turn, your active mon's Retreat Cost is 1 energy less.", effect: { kind: "reduceRetreat", amount: 1 } },
+  bandages: { id: "bandages", name: "Bandages", kind: "item", text: "Heal 20 damage from 1 of your fighters.", effect: { kind: "heal", amount: 20, target: "anyOwn" } },
+  "footwork-drill": { id: "footwork-drill", name: "Footwork Drill", kind: "item", text: "During this turn, your active fighter's Retreat Cost is 1 energy less.", effect: { kind: "reduceRetreat", amount: 1 } },
   "dana-white": { id: "dana-white", name: "Dana White", kind: "supporter", text: "Draw 2 cards.", effect: { kind: "draw", count: 2 } },
-  cutman: { id: "cutman", name: "Cutman", kind: "supporter", text: "Heal 30 damage from your active mon.", effect: { kind: "heal", amount: 30, target: "active" } },
+  cutman: { id: "cutman", name: "Cutman", kind: "supporter", text: "Heal 30 damage from your active fighter.", effect: { kind: "heal", amount: 30, target: "active" } },
 };
 
 export const ALL_CARD_POOL: Record<string, CardDefinition> = { ...CARD_POOL, ...TRAINER_POOL };
 
-function repeat(card: CreatureCard, n: number): CreatureCard[] {
+function repeat<T extends CardDefinition>(card: T, n: number): T[] {
   return Array.from({ length: n }, () => card);
 }
 
 // --- Fixed decks (20 cards each) -------------------------------------------
 
-/** Player deck: fire-themed, with a Cinderhorn EX. Energy type = fire. */
-export const DECK_PLAYER: CreatureCard[] = [
-  ...repeat(CARD_POOL.emberpup!, 10),
-  ...repeat(CARD_POOL.cinderhorn!, 4),
-  ...repeat(CARD_POOL.boulderfist!, 6),
+/** Player starter deck: UFC fighters and trainers. Energy type = fire. */
+export const DECK_PLAYER: CardDefinition[] = [
+  ...repeat(CARD_POOL["ilia-topuria"]!, 4),
+  ...repeat(TRAINER_POOL["dana-white"]!, 2),
+  ...repeat(TRAINER_POOL["footwork-drill"]!, 2),
+  ...repeat(TRAINER_POOL.bandages!, 2),
+  ...repeat(TRAINER_POOL.cutman!, 2),
+  ...repeat(CARD_POOL.merab!, 4),
+  ...repeat(CARD_POOL["tommy-mcmillan"]!, 4),
 ];
 
-/** AI deck: water-themed, with a Glacierjaw EX. Energy type = water. */
-export const DECK_AI: CreatureCard[] = [
-  ...repeat(CARD_POOL.tidefin!, 10),
-  ...repeat(CARD_POOL.glacierjaw!, 4),
-  ...repeat(CARD_POOL.sparkmouse!, 6),
+/** AI deck: Dagestani fighters and colorless support. Energy type = water. */
+export const DECK_AI: FighterCard[] = [
+  ...repeat(CARD_POOL["khabib-nurmagomedov"]!, 4),
+  ...repeat(CARD_POOL["islam-makhachev"]!, 4),
+  ...repeat(CARD_POOL["islam-makhachev-ex"]!, 4),
+  ...repeat(CARD_POOL.merab!, 4),
+  ...repeat(CARD_POOL["tommy-mcmillan"]!, 4),
 ];
 
 export const PLAYER_ENERGY: EnergyType = "fire";

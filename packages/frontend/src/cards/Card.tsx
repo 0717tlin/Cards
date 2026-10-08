@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { isCreatureCard, type CreatureCard, type TrainerCard, type CardDefinition, type EnergyType, type Stage } from "@card-game/engine";
+import { isFighterCard, type FighterCard, type TrainerCard, type CardDefinition, type CardRarity, type EnergyType, type Stage } from "@card-game/engine";
 import { ENERGY_COLOR, ENERGY_SYMBOL, resolveArt } from "./cardArt";
 
 const STAGE_LABEL: Record<Stage, string> = {
@@ -8,6 +8,7 @@ const STAGE_LABEL: Record<Stage, string> = {
   stage1: "Stage 1",
   stage2: "Stage 2",
 };
+const RARITY_STARS: Record<CardRarity, number> = { common: 1, uncommon: 2, rare: 3, epic: 4 };
 
 /**
  * Fit a card name into its allotted width by shrinking the font when it would
@@ -98,8 +99,11 @@ export interface CardProps {
   size?: "sm" | "md" | "lg";
   /** Battle overlays. */
   damage?: number;
+  paralyzed?: boolean;
+  burned?: boolean;
+  retreatCostIncrease?: number;
   attached?: EnergyType[];
-  /** Highlight the frame (e.g. the active creature). */
+  /** Highlight the frame (e.g. the active fighter). */
   highlight?: boolean;
   onClick?: () => void;
   /** Attack ids that are currently legal to use; those rows become clickable. */
@@ -115,7 +119,7 @@ export interface CardProps {
 }
 
 export function Card({ card, ...props }: CardProps) {
-  return isCreatureCard(card) ? <CreatureCardView card={card} {...props} /> : <TrainerCardView card={card} {...props} />;
+  return isFighterCard(card) ? <FighterCardView card={card} {...props} /> : <TrainerCardView card={card} {...props} />;
 }
 
 function TrainerCardView({ card, size = "md", onClick }: Omit<CardProps, "card"> & { card: TrainerCard }) {
@@ -132,14 +136,20 @@ function TrainerCardView({ card, size = "md", onClick }: Omit<CardProps, "card">
       <span className="card__art-glyph">{glyph}</span><span className="card__art-name">{card.name}</span>
     </div>
     <div className="card__details"><p className="trainer-rules">{card.text}</p></div>
-    <div className="card__footer trainer-limit">{card.kind === "item" ? "Play any number of Items during your turn." : "Play only 1 Supporter during your turn."}</div>
+    <div className="card__footer trainer-limit">
+      <span className="card__rarity-stars card__rarity-stars--common" aria-label="Common, 1 star" title="Common">★</span>
+      <span>{card.kind === "item" ? "Play any number of Items during your turn." : "Play only 1 Supporter during your turn."}</span>
+    </div>
   </div>;
 }
 
-function CreatureCardView({
+function FighterCardView({
   card,
   size = "md",
   damage,
+  paralyzed = false,
+  burned = false,
+  retreatCostIncrease = 0,
   attached,
   highlight = false,
   onClick,
@@ -147,7 +157,7 @@ function CreatureCardView({
   onAttack,
   flyLayoutId,
   energyPlacement = "art",
-}: Omit<CardProps, "card"> & { card: CreatureCard }) {
+}: Omit<CardProps, "card"> & { card: FighterCard }) {
   const art = resolveArt(card.art, card.type);
   const remaining = damage != null ? Math.max(0, card.hp - damage) : null;
   const clickable = !!onClick;
@@ -156,7 +166,7 @@ function CreatureCardView({
 
   return (
     <div
-      className={`card card--${size}${highlight ? " card--highlight" : ""}${clickable ? " card--clickable" : ""}${energyPlacement === "tray" ? " card--energy-tray" : ""}`}
+      className={`card card--${size}${card.isEx ? " card--ex" : ""}${highlight ? " card--highlight" : ""}${clickable ? " card--clickable" : ""}${energyPlacement === "tray" ? " card--energy-tray" : ""}`}
       style={{ ["--accent-type" as string]: accent }}
       onClick={onClick}
       role={clickable ? "button" : undefined}
@@ -177,7 +187,7 @@ function CreatureCardView({
           title={card.name}
           style={{ fontSize: `${nameFit.scale}em` }}
         >
-          {card.name}
+          {card.isEx ? card.name.replace(/\s+ex$/i, "") : card.name}
           {card.isEx && <span className="card__ex">ex</span>}
         </span>
         <span className="card__hp">
@@ -235,6 +245,9 @@ function CreatureCardView({
       )}
 
       <div className="card__details">
+      {burned && <p className="card__status" role="status">Burned: 20 damage each checkup; tails clears Burn</p>}
+      {paralyzed && <p className="card__status" role="status">Paralyzed: Cannot attack or retreat this turn</p>}
+      {retreatCostIncrease > 0 && <p className="card__status">Retreat +{retreatCostIncrease} Energy this turn</p>}
       {card.ability && (
         <div className="card__ability">
           <span className="card__ability-label">Ability</span>
@@ -278,7 +291,7 @@ function CreatureCardView({
               ))}
             </span>
             <span className="attack__name">{atk.name}</span>
-            <span className="attack__dmg">{atk.damage > 0 ? `${atk.damage}${atk.effects?.length ? "+" : ""}` : ""}</span>
+            <span className="attack__dmg">{atk.damage > 0 ? `${atk.damage}${atk.effects?.some(effect => ["damagePerAttachedEnergy", "flipUntilTails", "coinDamageBonus", "benchDamageBonus"].includes(effect.kind)) ? "+" : ""}` : ""}</span>
             {atk.text && <p className="attack__text">{atk.text}</p>}
           </div>
           );
@@ -287,31 +300,22 @@ function CreatureCardView({
       </div>
 
       <div className="card__footer">
-        <span className="stat">
-          <span className="stat__label">Weakness</span>
-          <span className="stat__val">
-            {card.weakness ? (
-              <>
-                <EnergyPip type={card.weakness} em={1.1} />
-                <span className="stat__plus">+20</span>
-              </>
-            ) : (
-              <span className="stat__dash">—</span>
-            )}
-          </span>
+        <span className={`card__rarity-stars card__rarity-stars--${card.rarity ?? "common"}`} aria-label={`${card.rarity ?? "common"}, ${RARITY_STARS[card.rarity ?? "common"]} stars`} title={card.rarity ?? "common"}>
+          {"★".repeat(RARITY_STARS[card.rarity ?? "common"])}
         </span>
-        <span className="stat stat--right">
-          <span className="stat__label">Retreat</span>
-          <span className="stat__val">
-            {card.retreatCost > 0 ? (
-              Array.from({ length: card.retreatCost }).map((_, i) => (
-                <EnergyPip key={i} type="colorless" em={1.1} />
-              ))
-            ) : (
-              <span className="stat__dash">—</span>
-            )}
+        {card.isEx && <span className="card__ex-rule">ex KO: 2 points</span>}
+        <div className="card__stats">
+          <span className="stat">
+            <span className="stat__label">Weakness</span>
+            <span className="stat__val">
+              {card.weakness ? <><EnergyPip type={card.weakness} em={1.1} /><span className="stat__plus">+20</span></> : <span className="stat__dash">—</span>}
+            </span>
           </span>
-        </span>
+          <span className="stat stat--right">
+            <span className="stat__label">Retreat</span>
+            <span className="stat__val">{card.retreatCost > 0 ? Array.from({ length: card.retreatCost }).map((_, i) => <EnergyPip key={i} type="colorless" em={1.1} />) : <span className="stat__dash">—</span>}</span>
+          </span>
+        </div>
       </div>
     </div>
   );
