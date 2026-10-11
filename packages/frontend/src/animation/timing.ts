@@ -7,20 +7,25 @@ import type { BattleEvent } from "@card-game/engine";
 export const EVENT_MS: Record<BattleEvent["kind"], number> = {
   trainerPlayed: 300,
   abilityUsed: 300,
+  deckPeeked: 0,
   healed: 350,
   retreatCostReduced: 250,
+  attackDamageBoosted: 250,
   battleStarted: 0,
   turnStarted: 900,
   energyGenerated: 250,
   cardDrawn: 300,
+  deckShuffled: 800,
   energyAttached: 400,
   fighterBenched: 350,
   retreated: 450,
+  switched: 450,
   promoted: 450,
   attackUsed: 350,
   coinFlipped: 1000,
   evolved: 450,
   damageReductionApplied: 300,
+  damageVulnerabilityApplied: 0,
   damageDealt: 550,
   knockedOut: 650,
   energyDiscarded: 0,
@@ -44,10 +49,15 @@ export function prefersReducedMotion(): boolean {
   );
 }
 
+/** Zero damage has no hit animation or input-lock delay. */
+export function eventAnimationTime(event: BattleEvent): number {
+  return event.kind === "damageDealt" && event.amount <= 0 ? 0 : EVENT_MS[event.kind];
+}
+
 /** Total time to let the given events animate before continuing. */
 export function animationTime(events: readonly BattleEvent[], reduced = prefersReducedMotion()): number {
   if (reduced) return 0;
-  return events.reduce((total, e) => total + EVENT_MS[e.kind], 0);
+  return events.reduce((total, e) => total + eventAnimationTime(e), 0);
 }
 
 /** Pause before the next AI action. */

@@ -5,10 +5,10 @@
 
 import type { BattleState, FighterInPlay, Move, PlayerId, PlayerState } from "./types.js";
 import { MAX_BENCH, POINTS_TO_WIN, opponentOf, isFighterCard } from "./types.js";
-import { canPayCost, computeDamage, isKnockedOut, isWeakTo, pointsForKo } from "./combat.js";
+import { canPayCost, computeDamage, getAvailableAttacks, matchesNamedNonEx, isKnockedOut, isWeakTo, pointsForKo } from "./combat.js";
 import { cloneState, endTurn } from "./turn.js";
 import { toInPlay } from "./setup.js";
-import { nextFloat, nextInt } from "./rng.js";
+import { nextFloat, nextInt, shuffle } from "./rng.js";
 
 /** Who is expected to act right now (normally turnPlayer; the promoter in awaitPromotion). */
 export function actingPlayer(state: BattleState): PlayerId {
@@ -35,6 +35,14 @@ export function getLegalMoves(state: BattleState): Move[] {
     const effect = fighter.card.ability?.effect;
     if (effect?.kind === "discardEnergyToHeal" && fighter.damage > 0 && fighter.attached.includes(effect.energy) && fighter.abilityUsedTurn !== state.turnNumber) {
       moves.push({ type: "useAbility", targetUid: fighter.uid });
+    }
+    if (effect?.kind === "peekOpponentDeck" && fighter === player.active && fighter.abilityUsedTurn !== state.turnNumber && state.players[opponentOf(player.id)].deck.length) {
+      moves.push({ type: "useAbility", targetUid: fighter.uid });
+    }
+    if (effect?.kind === "searchDeckToTop" && fighter.abilityUsedTurn !== state.turnNumber) {
+      for (const cardId of effect.cardIds) {
+        if (player.deck.some(card => card.id === cardId)) moves.push({ type: "useAbility", targetUid: fighter.uid, cardId });
+      }
     }
   }
   player.hand.forEach((card, handIndex) => {
@@ -66,6 +74,29 @@ export function getLegalMoves(state: BattleState): Move[] {
   player.hand.forEach((card, handIndex) => {
     if (isFighterCard(card) || (card.kind === "supporter" && player.hasPlayedSupporter)) return;
     switch (card.effect.kind) {
+      case "searchNamedFighterToTop": {
+        const names = card.effect.names;
+        const matchingIds = player.deck.filter(candidate => isFighterCard(candidate) && matchesNamedNonEx(candidate, names)).map(candidate => candidate.id);
+        for (const cardId of new Set(matchingIds)) {
+          moves.push({ type: "playTrainer", handIndex, cardId });
+        }
+        break;
+      }
+      case "switchDamagedOpponentBench": {
+        const opponent = state.players[opponentOf(player.id)];
+        if (opponent.active) {
+          for (const target of opponent.bench) {
+            if (target.damage > 0) moves.push({ type: "playTrainer", handIndex, targetUid: target.uid });
+          }
+        }
+        break;
+      }
+      case "boostActiveAttackDamage":
+        if (player.active) moves.push({ type: "playTrainer", handIndex });
+        break;
+      case "searchRandomBasic":
+        if (player.deck.some(card => isFighterCard(card) && card.stage === "basic")) moves.push({ type: "playTrainer", handIndex });
+        break;
       case "heal": {
         const targets = card.effect.target === "active" ? (player.active ? [player.active] : []) : fightersInPlay(player);
         for (const target of targets) {
@@ -86,6 +117,7 @@ export function getLegalMoves(state: BattleState): Move[] {
   if (
     player.active &&
     !player.active.paralyzed &&
+    !player.active.cannotRetreat &&
     !player.hasRetreated &&
     player.active.attached.length >= getRetreatCost(player)
   ) {
@@ -95,9 +127,17 @@ export function getLegalMoves(state: BattleState): Move[] {
   }
 
   // Attack with the active fighter if its cost is paid. Attacking ends the turn.
-  if (player.active && !player.active.paralyzed) {
-    for (const attack of player.active.card.attacks) {
+  if (player.active && !player.active.paralyzed && (player.attacksUsedThisTurn ?? 0) < (player.active.card.ability?.effect?.kind === "attackTwice" ? 2 : 1)) {
+    for (const attack of getAvailableAttacks(player.active, player.bench)) {
       if (canPayCost(player.active.attached, attack.cost)) {
+        if (attack.effects?.some(effect => effect.kind === "damageAnyFighter")) {
+          for (const target of fightersInPlay(state.players[opponentOf(player.id)])) moves.push({ type: "attack", attackId: attack.id, targetUid: target.uid });
+          continue;
+        }
+        if (attack.effects?.some(effect => effect.kind === "switchWithBench") && player.bench.length) {
+          for (const target of player.bench) moves.push({ type: "attack", attackId: attack.id, targetUid: target.uid });
+          continue;
+        }
         const effect = attack.effects?.find(effect => effect.kind === "benchDamage");
         const opposingBench = state.players[opponentOf(player.id)].bench;
         if (effect?.kind === "benchDamage" && opposingBench.length && player.bench.some(fighter => fighter.card.id === effect.chooseWithCardId)) {
@@ -121,12 +161,12 @@ function movesEqual(a: Move, b: Move): boolean {
   if (a.type !== b.type) return false;
   switch (a.type) {
     case "useAbility":
-      return a.targetUid === (b as typeof a).targetUid;
+      return a.targetUid === (b as typeof a).targetUid && a.cardId === (b as typeof a).cardId;
     case "evolve":
       return a.handIndex === (b as typeof a).handIndex && a.targetUid === (b as typeof a).targetUid;
     case "playTrainer": {
       const trainer = b as typeof a;
-      return a.handIndex === trainer.handIndex && a.targetUid === trainer.targetUid;
+      return a.handIndex === trainer.handIndex && a.targetUid === trainer.targetUid && a.cardId === trainer.cardId;
     }
     case "attachEnergy":
       return a.targetUid === (b as typeof a).targetUid;
@@ -156,6 +196,22 @@ export function applyMove(state: BattleState, move: Move): BattleState {
       const fighter = fightersInPlay(player).find((c) => c.uid === move.targetUid)!;
       const ability = fighter.card.ability!;
       const effect = ability.effect!;
+      if (effect.kind === "peekOpponentDeck") {
+        fighter.abilityUsedTurn = next.turnNumber;
+        next.events.push({ kind: "abilityUsed", player: player.id, uid: fighter.uid, name: ability.name });
+        next.events.push({ kind: "deckPeeked", player: player.id, card: next.players[opponentOf(player.id)].deck[0]! });
+        next.log.push(`${fighter.card.name} used ${ability.name} to view the opponent's top card.`);
+        return next;
+      }
+      if (effect.kind === "searchDeckToTop") {
+        const index = player.deck.findIndex(card => card.id === move.cardId);
+        const card = player.deck.splice(index, 1)[0]!;
+        player.deck.unshift(card);
+        fighter.abilityUsedTurn = next.turnNumber;
+        next.events.push({ kind: "abilityUsed", player: player.id, uid: fighter.uid, name: ability.name });
+        next.log.push(`${fighter.card.name} used ${ability.name}: put ${card.name} on top of the deck.`);
+        return next;
+      }
       if (effect.kind !== "discardEnergyToHeal") throw new Error("This ability is passive.");
       const index = fighter.attached.indexOf(effect.energy);
       fighter.attached.splice(index, 1);
@@ -179,6 +235,7 @@ export function applyMove(state: BattleState, move: Move): BattleState {
       fighter.card = card;
       fighter.evolvedTurn = next.turnNumber;
       fighter.damageReduction = 0;
+      fighter.damageVulnerability = undefined;
       fighter.paralyzed = false;
       fighter.burned = false;
       fighter.retreatCostIncrease = 0;
@@ -213,6 +270,7 @@ function applyPromote(state: BattleState, benchIndex: number): BattleState {
   player.active = promoted;
   next.log.push(`${pid} promoted ${promoted.card.name} to active.`);
   next.events.push({ kind: "promoted", player: pid, uid: promoted.uid });
+  attachZoneEnergyOnBecomingActive(next, player);
   next.phase = { kind: "main" };
   // Both actives can be knocked out in the same checkup. Resolve each promotion
   // before continuing the turn that has already begun.
@@ -237,6 +295,15 @@ function applyAttachEnergy(state: BattleState, targetUid: string): BattleState {
     targetUid: target.uid,
     energy: player.pendingEnergy!,
   });
+  const ability = target.card.ability;
+  if (ability?.effect?.kind === "burnBothActivesOnEnergyAttachment" && player.pendingEnergy === ability.effect.energy) {
+    for (const id of [player.id, opponentOf(player.id)]) {
+      const active = next.players[id].active;
+      if (active) active.burned = true;
+    }
+    next.events.push({ kind: "abilityUsed", player: player.id, uid: target.uid, name: ability.name });
+    next.log.push(`${target.card.name}'s ${ability.name} Burned both active fighters.`);
+  }
   player.pendingEnergy = null;
   player.hasAttachedEnergy = true;
   return next;
@@ -265,8 +332,11 @@ function applyRetreat(state: BattleState, benchIndex: number): BattleState {
   const paid = active.attached.slice(0, cost);
   active.attached = active.attached.slice(cost);
   active.damageReduction = 0;
+  active.damageVulnerability = undefined;
   active.paralyzed = false;
+  active.cannotRetreat = false;
   active.burned = false;
+  active.bleeding = false;
   active.retreatCostIncrease = 0;
   for (const energy of paid) {
     player.discard.push({ kind: "energy", energy });
@@ -284,7 +354,40 @@ function applyRetreat(state: BattleState, benchIndex: number): BattleState {
     inUid: incoming.uid,
     paid,
   });
+  attachZoneEnergyOnBecomingActive(next, player);
   return next;
+}
+
+/** Resolve the incoming fighter's passive ability using its owner's available zone energy. */
+function attachZoneEnergyOnBecomingActive(state: BattleState, player: PlayerState): void {
+  const incoming = player.active!;
+  const ability = incoming.card.ability;
+  if (ability?.effect?.kind !== "attachZoneEnergyOnBecomingActive" || !player.pendingEnergy) return;
+  const energy = player.pendingEnergy;
+  incoming.attached.push(energy);
+  player.pendingEnergy = null;
+  state.events.push({ kind: "abilityUsed", player: player.id, uid: incoming.uid, name: ability.name });
+  state.events.push({ kind: "energyAttached", player: player.id, targetUid: incoming.uid, energy });
+  state.log.push(`${incoming.card.name}'s ${ability.name} attached 1 ${energy} Energy from the energy zone.`);
+}
+
+function switchActiveFromBench(state: BattleState, player: PlayerState, targetUid?: string): void {
+  const benchIndex = player.bench.findIndex(fighter => fighter.uid === targetUid);
+  if (benchIndex < 0) return; // An empty bench does not prevent the attack's damage.
+  const outgoing = player.active!;
+  const incoming = player.bench[benchIndex]!;
+  outgoing.damageReduction = 0;
+  outgoing.damageVulnerability = undefined;
+  outgoing.paralyzed = false;
+  outgoing.cannotRetreat = false;
+  outgoing.burned = false;
+  outgoing.bleeding = false;
+  outgoing.retreatCostIncrease = 0;
+  player.bench[benchIndex] = outgoing;
+  player.active = incoming;
+  state.events.push({ kind: "switched", player: player.id, outUid: outgoing.uid, inUid: incoming.uid });
+  state.log.push(`${player.id} switched ${outgoing.card.name} to the bench; ${incoming.card.name} is now active.`);
+  attachZoneEnergyOnBecomingActive(state, player);
 }
 
 function applyTrainer(state: BattleState, move: Extract<Move, { type: "playTrainer" }>): BattleState {
@@ -298,6 +401,34 @@ function applyTrainer(state: BattleState, move: Extract<Move, { type: "playTrain
   next.events.push({ kind: "trainerPlayed", player: player.id, card });
   next.log.push(`${player.id} played ${card.name}.`);
   switch (card.effect.kind) {
+    case "searchNamedFighterToTop": {
+      const index = player.deck.findIndex(candidate => candidate.id === move.cardId);
+      const chosen = player.deck.splice(index, 1)[0]!;
+      player.deck.unshift(chosen);
+      next.log.push(`${player.id} put ${chosen.name} on top of their deck.`);
+      break;
+    }
+    case "switchDamagedOpponentBench":
+      switchActiveFromBench(next, next.players[opponentOf(player.id)], move.targetUid);
+      break;
+    case "boostActiveAttackDamage":
+      player.attackDamageBonus = (player.attackDamageBonus ?? 0) + card.effect.amount;
+      next.events.push({ kind: "attackDamageBoosted", player: player.id, amount: card.effect.amount });
+      next.log.push(`${player.id}'s attacks deal ${card.effect.amount} more damage to the opponent's active fighter this turn.`);
+      break;
+    case "searchRandomBasic": {
+      const eligible = player.deck.flatMap((card, index) => isFighterCard(card) && card.stage === "basic" ? [index] : []);
+      const roll = nextInt(next.rngState, eligible.length);
+      const drawn = player.deck.splice(eligible[roll.value]!, 1)[0]!;
+      player.hand.push(drawn);
+      next.events.push({ kind: "cardDrawn", player: player.id });
+      const shuffled = shuffle(roll.state, player.deck);
+      player.deck = shuffled.value;
+      next.rngState = shuffled.state;
+      next.events.push({ kind: "deckShuffled", player: player.id });
+      next.log.push(`${player.id} added ${drawn.name} to their hand and shuffled their deck.`);
+      break;
+    }
     case "heal": {
       const target = fightersInPlay(player).find((fighter) => fighter.uid === move.targetUid)!;
       const amount = Math.min(target.damage, card.effect.amount);
@@ -330,11 +461,38 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
   const defender = next.players[defenderId];
   const attackingFighter = attacker.active!;
   const defendingFighter = defender.active!;
-  const attack = attackingFighter.card.attacks.find((a) => a.id === attackId)!;
+  const attack = getAvailableAttacks(attackingFighter, attacker.bench).find((a) => a.id === attackId)!;
+  attacker.attacksUsedThisTurn = (attacker.attacksUsedThisTurn ?? 0) + 1;
+  const continues = attackingFighter.card.ability?.effect?.kind === "attackTwice" && attacker.attacksUsedThisTurn < 2;
+  const finish = () => {
+    if (!continues) return endTurn(next);
+    if (!defender.active) next.phase = { kind: "awaitPromotion", player: defenderId };
+    return next;
+  };
   const benchEffect = attack.effects?.find(effect => effect.kind === "benchDamage");
-  if (benchEffect?.kind === "benchDamage") {
+  const targetedEffect = attack.effects?.find(effect => effect.kind === "damageAnyFighter");
+  if (attack.effects?.some(effect => effect.kind === "coinAttackFailsOnTails")) {
+    const roll = nextFloat(next.rngState);
+    next.rngState = roll.state;
+    const heads = roll.value < 0.5;
+    next.events.push({ kind: "coinFlipped", player: attackerId, result: heads ? "heads" : "tails", flip: 1, bonus: 0, attackName: attack.name });
+    if (!heads) {
+      next.events.push({ kind: "attackUsed", player: attackerId, attackerUid: attackingFighter.uid, attackId, targetUid: targetUid ?? defendingFighter.uid });
+      next.log.push(`${attackingFighter.card.name} used ${attack.name}, but tails made the attack do nothing.`);
+      return finish();
+    }
+  }
+  if (attack.effects?.some(effect => effect.kind === "discardAllSelfEnergy")) {
+    for (const energy of attackingFighter.attached.splice(0)) {
+      attacker.discard.push({ kind: "energy", energy });
+      next.events.push({ kind: "energyDiscarded", player: attackerId, energy });
+    }
+    next.log.push(`${attackingFighter.card.name} discarded all attached energy.`);
+  }
+  if (benchEffect?.kind === "benchDamage" || (targetedEffect?.kind === "damageAnyFighter" && targetUid !== defendingFighter.uid)) {
+    const amount = benchEffect?.kind === "benchDamage" ? benchEffect.amount : targetedEffect!.amount;
     let target = targetUid ? defender.bench.find(fighter => fighter.uid === targetUid) : undefined;
-    if (!target && defender.bench.length) {
+    if (!target && benchEffect && defender.bench.length) {
       const roll = nextInt(next.rngState, defender.bench.length);
       next.rngState = roll.state;
       target = defender.bench[roll.value]!;
@@ -342,12 +500,12 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
     next.events.push({ kind: "attackUsed", player: attackerId, attackerUid: attackingFighter.uid, attackId, targetUid: target?.uid ?? defendingFighter.uid });
     if (!target) {
       next.log.push(`${attackingFighter.card.name} used ${attack.name}, but the opponent's bench is empty.`);
-      return endTurn(next);
+      return finish();
     }
     // Bench damage is fixed; weakness and active-fighter damage modifiers do not apply.
-    target.damage += benchEffect.amount;
-    next.log.push(`${attackingFighter.card.name} used ${attack.name} for ${benchEffect.amount} damage to benched ${target.card.name}.`);
-    next.events.push({ kind: "damageDealt", player: defenderId, uid: target.uid, amount: benchEffect.amount, weakness: false });
+    target.damage += amount;
+    next.log.push(`${attackingFighter.card.name} used ${attack.name} for ${amount} damage to benched ${target.card.name}.`);
+    next.events.push({ kind: "damageDealt", player: defenderId, uid: target.uid, amount, weakness: false });
     if (isKnockedOut(target)) {
       const points = pointsForKo(target);
       attacker.points += points;
@@ -364,7 +522,7 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
         return next;
       }
     }
-    return endTurn(next);
+    return finish();
   }
 
 
@@ -375,7 +533,7 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
       next.events.push({ kind: "damageReductionApplied", player: attackerId, uid: attackingFighter.uid, amount: effect.amount });
       next.log.push(`${attackingFighter.card.name} will take ${effect.amount} less attack damage next turn.`);
     }
-    if (effect.kind !== "flipUntilTails" && effect.kind !== "coinDamageBonus") continue;
+    if (effect.kind !== "flipUntilTails" && effect.kind !== "coinDamageBonus" && effect.kind !== "coinDamagePerHeads") continue;
     let flip = 0;
     let bonus = 0;
     let heads: boolean;
@@ -386,10 +544,10 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
       if (heads) bonus += effect.amount;
       next.events.push({ kind: "coinFlipped", player: attackerId, result: heads ? "heads" : "tails", flip: ++flip, bonus, attackName: attack.name });
       next.log.push(`${attackerId} flipped ${heads ? "heads" : "tails"} (+${bonus} damage).`);
-    } while (heads && effect.kind === "flipUntilTails");
+    } while ((heads && effect.kind === "flipUntilTails") || (effect.kind === "coinDamagePerHeads" && flip < effect.coins));
     randomBonus += bonus;
   }
-  const damage = computeDamage(attackingFighter, defendingFighter, attack, randomBonus, attacker.bench);
+  const damage = computeDamage(attackingFighter, defendingFighter, attack, randomBonus, attacker.bench, attacker.attackDamageBonus ?? 0, defender.points > attacker.points);
   defendingFighter.damage += damage;
   next.log.push(
     `${attacker.id}'s ${attackingFighter.card.name} used ${attack.name} for ${damage} damage.`
@@ -406,11 +564,38 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
     player: defenderId,
     uid: defendingFighter.uid,
     amount: damage,
-    weakness: isWeakTo(attackingFighter, defendingFighter),
+    weakness: isWeakTo(attackingFighter, defendingFighter, attack),
   });
 
+  for (const effect of attack.effects ?? []) {
+    if (effect.kind === "discardSelfEnergy") {
+      if (effect.unlessBenchCardId && attacker.bench.some(fighter => fighter.card.id === effect.unlessBenchCardId)) continue;
+      for (const energy of attackingFighter.attached.splice(0, effect.amount)) {
+        attacker.discard.push({ kind: "energy", energy });
+        next.events.push({ kind: "energyDiscarded", player: attackerId, energy });
+        next.log.push(`${attackingFighter.card.name} discarded 1 ${energy} Energy.`);
+      }
+    }
+    if (effect.kind === "preventRetreat") {
+      defendingFighter.cannotRetreat = true;
+      next.log.push(`${defendingFighter.card.name} can't retreat during its next turn.`);
+    }
+    if (effect.kind === "coinBleed") {
+      const roll = nextFloat(next.rngState);
+      next.rngState = roll.state;
+      const heads = roll.value < 0.5;
+      next.events.push({ kind: "coinFlipped", player: attackerId, result: heads ? "heads" : "tails", flip: 1, bonus: 0, attackName: attack.name, reason: "bleeding" });
+      if (heads && !isKnockedOut(defendingFighter)) defendingFighter.bleeding = true;
+      next.log.push(`${attack.name}: ${heads ? "heads, the opponent is Bleeding" : "tails"}.`);
+    }
+  }
   if (!isKnockedOut(defendingFighter)) {
     for (const effect of attack.effects ?? []) {
+      if (effect.kind === "increaseIncomingDamage") {
+        defendingFighter.damageVulnerability = { amount: effect.amount, expiresAfterTurn: next.turnNumber + 2 };
+        next.events.push({ kind: "damageVulnerabilityApplied", player: defenderId, uid: defendingFighter.uid, amount: effect.amount });
+        next.log.push(`${defendingFighter.card.name} takes ${effect.amount} more attack damage during ${attackerId}'s next turn.`);
+      }
       if (effect.kind === "burn") {
         defendingFighter.burned = true;
         next.log.push(`${defendingFighter.card.name} is Burned.`);
@@ -425,6 +610,8 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
       }
     }
   }
+
+  if (attack.effects?.some(effect => effect.kind === "switchWithBench")) switchActiveFromBench(next, attacker, targetUid);
 
   if (isKnockedOut(defendingFighter)) {
     const points = pointsForKo(defendingFighter);
@@ -463,9 +650,9 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
     }
 
     // Defender must promote before play continues.
-    return endTurn(next);
+    return finish();
   }
 
   // No KO: attacking ends the turn normally.
-  return endTurn(next);
+  return finish();
 }

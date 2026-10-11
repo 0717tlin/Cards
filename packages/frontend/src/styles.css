@@ -92,6 +92,26 @@ body {
   overflow-y: auto;
 }
 
+/* Cards and decks scroll inside the shell, leaving navigation in view. */
+.app--catalog {
+  height: 100dvh;
+  min-height: 0;
+}
+.app--catalog .phone {
+  min-height: 0;
+}
+.app--catalog .shell {
+  overflow: hidden;
+}
+.app--catalog .topbar,
+.app--catalog .tabbar {
+  flex-shrink: 0;
+}
+.app--catalog .app__main {
+  min-height: 0;
+  overscroll-behavior-y: contain;
+}
+
 /* ---- Bottom tab bar ---- */
 .tabbar {
   display: flex;
@@ -213,6 +233,44 @@ body {
   gap: 6px;
   flex-wrap: wrap;
 }
+.card-catalog-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin-bottom: 16px;
+}
+.card-catalog-controls label,
+.card-catalog-controls__order {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.card-catalog-controls__toggle {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font: inherit;
+  min-width: 118px;
+}
+.card-catalog-controls select {
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-solid);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.card-catalog-controls select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.card-catalog-controls [role="status"] {
+  padding-bottom: 8px;
+}
 .slot-label {
   font-size: 11px;
   text-transform: uppercase;
@@ -231,6 +289,19 @@ body {
 .card-grid--sm {
   gap: 10px;
 }
+.card-grid--viewer {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.card-grid--viewer .card {
+  width: 100%;
+}
+@media (max-width: 800px) {
+  .card-grid--viewer { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .card-grid--viewer { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* ============================================================
    Framed, glossy Card
@@ -241,7 +312,7 @@ body {
   position: relative;
   background: #ffffff;
   color: #22303f;
-  border: 3px solid #b3bfce;
+  border: calc(var(--card-width, 210px) / 70) solid #b3bfce;
   border-radius: 4% / 2.857%;
   display: flex;
   flex-direction: column;
@@ -356,6 +427,18 @@ body {
   position: absolute;
   inset: 0;
   background: linear-gradient(125deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 42%);
+}
+.card__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+}
+.card__photo--trainer {
+  object-position: center 30%;
 }
 .card__art-glyph {
   font-size: 2.4em;
@@ -726,6 +809,9 @@ body {
   font-weight: 800;
   color: var(--ink);
 }
+.zone__deck-pile { position: relative; display: inline-grid; isolation: isolate; }
+.zone__deck-pile .zone__stack { position: relative; z-index: 2; min-width: 30px; min-height: 24px; padding: 2px 5px; display: grid; place-items: center; background: #edf5fc; border: 1px solid #a6bfd4; border-radius: 4px; box-shadow: 2px 2px 0 #c0d0e1; }
+.zone__shuffle-card { position: absolute; inset: 0; z-index: 1; border-radius: 4px; border: 1px solid #a6bfd4; background: repeating-linear-gradient(45deg, #2f627b 0 4px, #46849c 4px 8px); box-shadow: 0 2px 4px #16354744; pointer-events: none; }
 .zone__label {
   font-size: 10px;
   text-transform: uppercase;
@@ -1387,9 +1473,17 @@ body {
 }
 
 /* Portaled dialogs stay fixed to the viewport during screen transitions. */
-.modal-backdrop:has(.fighter-dialog) {
+.modal-backdrop:has(.fighter-dialog, .deck-delete-dialog, .deck-code-dialog) {
   z-index: 40;
   padding: 12px;
+}
+.deck-delete-dialog {
+  width: min(420px, 100%);
+  outline: none;
+}
+.deck-delete-dialog .deck-select__actions {
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 .fighter-dialog {
   width: max-content;
@@ -1731,11 +1825,11 @@ body {
   font-size: clamp(9px, 2.2vmin, 16px);
 }
 
-/* One printed layout at every size: header 8%, art 44%, rules 38%, footer 10%. */
+/* One printed layout at every size: header 8%, art 44%, rules 40%, footer 8%. */
 .card {
   container-type: inline-size;
   display: grid;
-  grid-template-rows: 8% 44% 38% 10%;
+  grid-template-rows: 8% 44% 40% 8%;
 }
 .card__header {
   font-size: 4cqw;
@@ -1776,7 +1870,7 @@ body {
   flex: 1 0 auto;
   align-content: center;
   column-gap: 0.45em;
-  row-gap: 0.5em;
+  row-gap: 0;
   padding: 0.5em 0;
 }
 .card__attacks .attack + .attack {
@@ -1784,7 +1878,8 @@ body {
 }
 .attack__text {
   font-size: 0.85em;
-  line-height: 1.35;
+  margin: 0.25em 0 0;
+  line-height: 1.3;
 }
 .card__footer {
   min-height: 0;
@@ -2060,7 +2155,6 @@ body {
   }
 }
 /* Compact board with a larger hand and the original thin battle frames. */
-.battle .card, .menu__fan-card .card { border-width: 1px; }
 .battle .card--highlight { box-shadow: 0 0 0 3px var(--teal), var(--shadow); }
 .battle { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto; }
 .battle > .pzone--opponent { grid-row: 1; }
@@ -2164,12 +2258,29 @@ body {
 .deck-energies label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
 .deck-energies p { flex-basis: 100%; margin: 0; }
 
-/* Metallic foil is reserved for ex fighters. */
+/* Frame thickness scales with card width; Rare is silver and ex is gold. */
+.card.card--rare:not(.card--ex) {
+  border: calc(var(--card-width, 210px) / 52.5) solid transparent;
+  background: linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, #78828d, #c6ced6 16%, #ffffff 26%, #929da8 42%, #e5eaf0 60%, #ffffff 72%, #a4afb9 87%, #77818c) border-box;
+  box-shadow: inset 0 0 0 calc(var(--card-width, 210px) / 210) #cbd2d9, var(--shadow);
+}
+.card--rare:not(.card--ex)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 0.45cqw solid #ffffff88;
+  pointer-events: none;
+}
+.card.card--rare.card--highlight {
+  box-shadow: 0 0 0 3px var(--teal), var(--shadow);
+}
 .card.card--ex {
-  border: 4px solid transparent;
+  border: calc(var(--card-width, 210px) / 52.5) solid transparent;
   background: linear-gradient(#fff, #fff) padding-box,
     linear-gradient(125deg, #775015, #f7dd79 18%, #fff7ce 26%, #b98627 40%, #ffeaa0 58%, #fffdf0 66%, #996b1c 84%, #e9ca63) border-box;
-  box-shadow: inset 0 0 0 1px #d4ab53, 0 0 10px #e6c46155, var(--shadow);
+  box-shadow: inset 0 0 0 calc(var(--card-width, 210px) / 210) #d4ab53, 0 0 10px #e6c46155, var(--shadow);
 }
 .card--ex::after {
   content: "";
@@ -2180,6 +2291,9 @@ body {
   background: linear-gradient(115deg, transparent 15%, #ffffff24 25%, transparent 35%, transparent 70%, #fff5 78%, transparent 85%);
 }
 .card--ex.card--highlight { box-shadow: 0 0 0 3px var(--teal), 0 0 16px #e6c46188, var(--shadow); }
+.fighter--targetable > .card:is(.card--rare, .card--ex) {
+  box-shadow: 0 0 0 4px var(--teal), 0 0 20px rgba(35, 195, 201, 0.4);
+}
 .card__ex {
   color: #b78010;
   background: linear-gradient(165deg, #fff7b3 10%, #bf8315 35%, #ffdf6b 52%, #8b5c09 70%, #ffeaa0 88%);
@@ -2207,4 +2321,13 @@ body {
   color: #79500b;
   font-size: 0.7em;
   font-weight: 800;
+}
+
+.deck-code-dialog { width: min(420px, calc(100vw - 32px)); }
+.deck-code-dialog label { display: block; font-size: 14px; }
+.deck-code-dialog .deck-code-value {
+  display: block; width: 100%; box-sizing: border-box; margin: 12px 0;
+  padding: 14px; border: 1px solid var(--border); border-radius: 10px;
+  font: 700 28px monospace; text-align: center; letter-spacing: .2em;
+  color: var(--ink); background: white;
 }

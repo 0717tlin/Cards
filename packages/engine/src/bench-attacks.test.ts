@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CARD_POOL, applyMove, chooseMove, createBattle, getLegalMoves } from "./index.js";
 import { toInPlay } from "./setup.js";
 import { nextInt } from "./rng.js";
-const umar = CARD_POOL["umar-nurmagomedov"]!;
+// Synthetic fixture keeps bench-damage rules covered independently of live card changes.
+const umar: import("./types.js").FighterCard = { ...CARD_POOL["umar-nurmagomedov"]!, attacks: [{ id: "grapple", name: "Grapple", cost: ["water"], damage: 0, effects: [{ kind: "benchDamage", amount: 20, chooseWithCardId: "khabib-nurmagomedov" }] }] };
 const khabib = CARD_POOL["khabib-nurmagomedov"]!;
 const islamEx = CARD_POOL["islam-makhachev-ex"]!;
 function battle(withKhabib = false) {
@@ -13,7 +14,7 @@ function battle(withKhabib = false) {
   state.players.P2.bench = [toInPlay(khabib), toInPlay(islamEx), toInPlay(umar)];
   return state;
 }
-describe("Umar's Grapple", () => {
+describe("bench-damage attacks", () => {
   it("matches the card stats and requires Water energy", () => {
     expect(umar).toMatchObject({hp:60,type:"water",attacks:[{name:"Grapple",damage:0,cost:["water"]}]});
     const state = battle();
@@ -80,6 +81,8 @@ describe("Umar's Grapple", () => {
   });
   it("wins on bench knockout points and lets AI pick the best target", () => {
     const state = battle(true);
+    // Evaluate attack selection after the benched Khabib has used Fathers Plan.
+    state.players.P1.bench[0]!.abilityUsedTurn = state.turnNumber;
     state.players.P1.hand = [];
     state.players.P1.pendingEnergy = null;
     state.players.P1.points = 1;

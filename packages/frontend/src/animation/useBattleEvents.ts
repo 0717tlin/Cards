@@ -12,7 +12,7 @@
 import { useEffect, useReducer, useRef } from "react";
 import type { BattleEvent, FighterInPlay, PlayerId } from "@card-game/engine";
 import { opponentOf } from "@card-game/engine";
-import { EVENT_MS, prefersReducedMotion } from "./timing";
+import { eventAnimationTime, prefersReducedMotion } from "./timing";
 
 interface Entry {
   event: BattleEvent;
@@ -21,10 +21,10 @@ interface Entry {
   end: number;
 }
 
-function buildTimeline(events: readonly BattleEvent[], firstIndex: number, reduced: boolean): Entry[] {
+export function buildTimeline(events: readonly BattleEvent[], firstIndex: number, reduced: boolean): Entry[] {
   let t = 0;
   return events.map((event, i) => {
-    const d = reduced ? 0 : EVENT_MS[event.kind];
+    const d = reduced ? 0 : eventAnimationTime(event);
     const entry = { event, index: firstIndex + i, start: t, end: t + d };
     t += d;
     return entry;
@@ -42,7 +42,7 @@ export interface KoGhost {
 }
 
 export interface BattleEffects {
-  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number; attackName?: string; reason?: "burn" } | null;
+  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number; attackName?: string; reason?: "burn" | "bleeding" } | null;
   turnBanner: { player: PlayerId; key: number } | null;
   /** Attacker currently lunging. */
   lungeUid: string | null;
@@ -57,6 +57,7 @@ export interface BattleEffects {
   /** Energy zones whose new energy hasn't "appeared" yet. */
   energyHidden: Partial<Record<PlayerId, boolean>>;
   ringPulse: { player: PlayerId; key: number } | null;
+  shuffling: { player: PlayerId; key: number } | null;
   /** Number of the human's most recently drawn cards not yet revealed. */
   hiddenDraws: Partial<Record<PlayerId, number>>;
   /** An energy that is currently flying from the zone to this fighter. */
@@ -76,12 +77,13 @@ const NONE: BattleEffects = {
   pointsPulse: null,
   energyHidden: {},
   ringPulse: null,
+  shuffling: null,
   hiddenDraws: {},
   flyEnergy: null,
   entering: {},
 };
 
-function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
+export function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
   if (timeline.length === 0) return NONE;
   const active = (e: Entry) => elapsed >= e.start && elapsed < e.end;
   const pending = (e: Entry) => elapsed < e.start;
@@ -95,7 +97,7 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
     entering: {},
   };
 
-  const damageEntries = timeline.filter((e) => e.event.kind === "damageDealt");
+  const damageEntries = timeline.filter((e) => e.event.kind === "damageDealt" && e.event.amount > 0);
 
   for (const entry of timeline) {
     const ev = entry.event;
@@ -110,6 +112,7 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
         if (active(entry)) fx.lungeUid = ev.attackerUid;
         break;
       case "damageDealt":
+        if (ev.amount <= 0) break;
         if (active(entry)) {
           fx.hit = { uid: ev.uid, amount: ev.amount, weakness: ev.weakness, key: entry.index };
         }
@@ -149,6 +152,9 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
       case "cardDrawn":
         if (pending(entry)) fx.hiddenDraws[ev.player] = (fx.hiddenDraws[ev.player] ?? 0) + 1;
         break;
+      case "deckShuffled":
+        if (active(entry)) fx.shuffling = { player: ev.player, key: entry.index };
+        break;
       case "energyAttached":
         if (active(entry)) fx.flyEnergy = { player: ev.player, uid: ev.targetUid };
         break;
@@ -156,6 +162,7 @@ function effectsAt(timeline: Entry[], elapsed: number): BattleEffects {
         if (elapsed < entry.end) fx.entering[ev.uid] = true;
         break;
       case "retreated":
+      case "switched":
         if (elapsed < entry.end) {
           fx.entering[ev.inUid] = true;
           fx.entering[ev.outUid] = true;

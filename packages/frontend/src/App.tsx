@@ -49,7 +49,7 @@ export function App() {
   return (
     // reducedMotion="user": honour the OS "reduce motion" setting everywhere.
     <MotionConfig reducedMotion="user">
-      <div className={`app${view === "battle" ? " app--battle" : view === "packs" ? " app--packs" : ""}`}>
+      <div className={`app${view === "battle" ? " app--battle" : view === "packs" ? " app--packs" : view !== "menu" ? " app--catalog" : ""}`}>
         <div className="phone">
           <AnimatePresence mode="wait" initial={false}>
             {view === "menu" ? (

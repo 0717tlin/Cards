@@ -1,0 +1,65 @@
+{
+  "herb-dean": {
+    "file": "herb-dean.webp",
+    "page": "https://commons.wikimedia.org/wiki/File:Herb_Dean_interview_with_MMAnytt.jpg",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Herb_Dean_interview_with_MMAnytt.jpg",
+    "credit": "MMAnytt",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+    "changes": "Resized, converted to WebP; cropped in card display."
+  },
+  "dana-white": {
+    "file": "dana-white.webp",
+    "page": "https://commons.wikimedia.org/wiki/File:Dana_White_headshot.jpg",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/5/51/Dana_White_headshot.jpg",
+    "credit": "Justin Moore",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "changes": "Resized, converted to WebP; cropped in card display."
+  },
+  "bandages": {
+    "file": "bandages.webp",
+    "page": "https://commons.wikimedia.org/wiki/File:Boxers_wrap_their_hands_with_cloth_tape_prior_to_putting_on_boxing_gloves.jpg",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/d/d1/Boxers_wrap_their_hands_with_cloth_tape_prior_to_putting_on_boxing_gloves.jpg",
+    "credit": "U.S. military / The Wire; photographer not specified",
+    "license": "Public domain",
+    "licenseUrl": null,
+    "changes": "Resized, converted to WebP; cropped in card display."
+  },
+  "footwork-drill": {
+    "file": "footwork-drill.webp",
+    "page": "https://www.ufc.com/athlete/dan-ige",
+    "image": "https://ufc.com/images/styles/card_advance_small_280x356/s3/2026-09/090926-dan-ige-prefight_GettyImages-2262885372.jpg?itok=UtLRiagI",
+    "credit": "Chris Unger / Zuffa LLC",
+    "license": "UFC photo",
+    "licenseUrl": null,
+    "changes": "Resized, converted to WebP; cropped in card display."
+  },
+  "cutman": {
+    "file": "cutman.webp",
+    "page": "https://commons.wikimedia.org/wiki/File:JacobDuran.png",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/0/04/JacobDuran.png",
+    "credit": "Davide Ferro (Flickr); cropped original uploaded by East718",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "changes": "Resized, converted to WebP; cropped in card display."
+  },
+  "fight-contract": {
+    "file": "fight-contract.webp",
+    "page": "https://commons.wikimedia.org/wiki/File:UFCOctagon.jpg",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/d/da/UFCOctagon.jpg",
+    "credit": "Lee Brimelow",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "changes": "Resized, converted to WebP; cropped in card display."
+  },
+  "ali-abdelaziz": {
+    "file": "ali-abdelaziz.webp",
+    "page": "https://commons.wikimedia.org/wiki/File:Ali_Abdelaziz.jpg",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Ali_Abdelaziz.jpg",
+    "credit": "Sgt. Christian Brown / U.S. Army National Guard",
+    "license": "Public domain",
+    "licenseUrl": "https://commons.wikimedia.org/wiki/File:Ali_Abdelaziz.jpg#Licensing",
+    "changes": "Resized, converted to WebP; cropped in card display."
+  }
+}

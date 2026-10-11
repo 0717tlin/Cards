@@ -3,12 +3,14 @@
 export const ENGINE_VERSION = "0.3.0";
 
 export * from "./types.js";
+export * from "./decks.js";
 export { createBattle } from "./setup.js";
 export { getLegalMoves, applyMove, actingPlayer, getRetreatCost } from "./moves.js";
 export { getWinner } from "./winner.js";
 export { chooseMove } from "./ai.js";
 export {
   CARD_POOL,
+  getFighterStageLabel,
   ALL_CARD_POOL,
   TRAINER_POOL,
   DECK_PLAYER,
@@ -18,6 +20,7 @@ export {
 } from "./cards.js";
 export {
   canPayCost,
+  getAvailableAttacks,
   computeDamage,
   isWeakTo,
   isKnockedOut,

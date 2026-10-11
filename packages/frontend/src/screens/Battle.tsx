@@ -13,7 +13,7 @@ import { useBattleStore, HUMAN, AI } from "../store/battleStore";
 import { useAppView } from "../navigation/useAppView";
 import { Card, EnergyPip, Pop } from "../cards/Card";
 import { useBattleEvents, type BattleEffects, type KoGhost } from "../animation/useBattleEvents";
-import { BattleLog, FighterDetails } from "./BattleDialogs";
+import { BattleLog, FighterDetails, Dialog } from "./BattleDialogs";
 import { EVENT_MS } from "../animation/timing";
 
 // ---------------------------------------------------------------------------
@@ -215,6 +215,7 @@ function Fighter({
         damage={damage}
         paralyzed={c.paralyzed}
         burned={c.burned}
+        bleeding={c.bleeding}
         retreatCostIncrease={c.retreatCostIncrease}
         attached={c.attached}
         energyPlacement="tray"
@@ -322,11 +323,15 @@ function SideRail({
   dnd: DndApi | null;
   onInspectDiscard: () => void;
 }) {
+  const shuffling = fx.shuffling?.player === player.id;
   return (
     <div className="zones">
       <div className="zone">
-        <div className="zone__stack">{player.deck.length}</div>
-        <div className="zone__label">Deck</div>
+        <div className="zone__deck-pile" key={shuffling ? fx.shuffling!.key : "deck"} aria-label={shuffling ? "Shuffling deck" : `Deck: ${player.deck.length} cards`}>
+          {shuffling && [-1, 1].map(direction => <motion.span key={direction} aria-hidden="true" className="zone__shuffle-card" initial={{ x: 0, rotate: 0 }} animate={{ x: [0, direction * 12, -direction * 8, direction * 9, 0], rotate: [0, direction * 14, -direction * 9, direction * 8, 0], y: [0, -3, 1, -2, 0] }} transition={{ duration: s(EVENT_MS.deckShuffled), ease: "easeInOut" }} />)}
+          <motion.div className="zone__stack" initial={false} animate={shuffling ? { x: [0, -4, 5, -3, 0], rotate: [0, -5, 5, -3, 0], scale: [1, 1.08, 1] } : { x: 0, rotate: 0, scale: 1 }} transition={{ duration: shuffling ? s(EVENT_MS.deckShuffled) : 0 }}>{player.deck.length}</motion.div>
+        </div>
+        <div className="zone__label">{shuffling ? "Shuffling" : "Deck"}</div>
       </div>
       <EnergyZone player={player} fx={fx} turnNumber={turnNumber} dnd={dnd} />
       <button className="zone zone--btn" onClick={onInspectDiscard} title="Inspect discard pile">
@@ -648,6 +653,11 @@ export function Battle() {
   const [selected, setSelected] = useState<{ card: CardDefinition; uid?: string; owner?: PlayerId; handIndex?: number; gameId: number } | null>(null);
   const [drag, setDrag] = useState<DragPayload | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  const [dismissedPeek, setDismissedPeek] = useState<{ gameId: number; index: number } | null>(null);
+  let peekIndex = -1;
+  state.events.forEach((event, index) => { if (event.kind === "deckPeeked" && event.player === HUMAN) peekIndex = index; });
+  const peek = state.events[peekIndex];
+  const showPeek = !busy && peek?.kind === "deckPeeked" && (dismissedPeek?.gameId !== gameId || dismissedPeek.index !== peekIndex);
   const [targeting, setTargeting] = useState<{ gameId: number; label: string; moves: Move[] } | null>(null);
 
   const human = state.players[HUMAN];
@@ -729,8 +739,9 @@ export function Battle() {
       {fx.coin && <div className="coin-flip" role="status" aria-live="polite">
         <div className="coin-flip__disc" key={fx.coin.key}>{fx.coin.result === "heads" ? "H" : "T"}</div>
         <strong>Flip {fx.coin.flip}: {fx.coin.result}</strong>
-        <span>{fx.coin.reason === "burn" ? `Burn check: ${fx.coin.result === "tails" ? "Burn removed" : "Burn remains"}` : `${fx.coin.attackName ?? "Attack"} bonus: +${fx.coin.bonus} damage`}</span>
+        <span>{fx.coin.reason === "bleeding" ? `${fx.coin.attackName ?? "Attack"}: ${fx.coin.result === "heads" ? "Bleeding applied" : "No Bleeding"}` : fx.coin.reason === "burn" ? `Burn check: ${fx.coin.result === "tails" ? "Burn removed" : "Burn remains"}` : `${fx.coin.attackName ?? "Attack"} bonus: +${fx.coin.bonus} damage`}</span>
       </div>}
+      {showPeek && peek.kind === "deckPeeked" && <Dialog title="Download · Opponent’s top card" onClose={() => setDismissedPeek({ gameId, index: peekIndex })}><div className="fighter-details__card"><Card card={peek.card} size="lg" /></div></Dialog>}
       {logOpen && <BattleLog key={gameId} lines={state.log} onClose={() => setLogOpen(false)} />}
 
       <AnimatePresence>

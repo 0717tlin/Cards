@@ -54,7 +54,7 @@ describe("Burn and fighter checkup", () => {
     state.rngState = seed;
     state = applyMove(state,{type:"attack",attackId:"trash-talk"});
     expect(state.players.P2.active!.burned).toBe(true);
-    expect(getLegalMoves(state)).toContainEqual({type:"attack",attackId:"smother"});
+    expect(getLegalMoves(state)).toContainEqual({type:"attack",attackId:"khabib-single-leg"});
     const next = applyMove(state,{type:"pass"});
     expect(next.players.P2.active!.damage).toBe(40);
     expect(next.players.P2.active!.burned).toBe(true);
@@ -98,7 +98,7 @@ describe("Burn and fighter checkup", () => {
   it("scores ex knockouts, discards energy, flips after lethal damage and requires promotion", () => {
     const state = battle();
     state.players.P2.active!.card = ex;
-    state.players.P2.active!.damage = 140;
+    state.players.P2.active!.damage = ex.hp - 20;
     const hit = applyMove(state,{type:"attack",attackId:"trash-talk"});
     expect(hit.players.P1.points).toBe(2);
     expect(hit.players.P2.active).toBeNull();

@@ -20,11 +20,22 @@ export type AttackEffect = {
   amount: number;
 } | { kind: "flipUntilTails"; amount: number }
   | { kind: "coinDamageBonus"; amount: number }
+  | { kind: "coinAttackFailsOnTails" }
   | { kind: "reduceIncomingDamage"; amount: number }
   | { kind: "increaseRetreatCost"; amount: number }
   | { kind: "paralyzeAtOrBelowHp"; hp: number }
   | { kind: "burn" }
+  | { kind: "coinBleed" }
+  | { kind: "ignoreWeakness" }
+  | { kind: "preventRetreat" }
+  | { kind: "coinDamagePerHeads"; coins: number; amount: number }
+  | { kind: "discardSelfEnergy"; amount: number; unlessBenchCardId?: string }
+  | { kind: "discardAllSelfEnergy" }
+  | { kind: "damageAnyFighter"; amount: number }
+  | { kind: "increaseIncomingDamage"; amount: number }
+  | { kind: "damagedOpponentBonus"; amount: number }
   | { kind: "benchDamageBonus"; cardId: string; amount: number }
+  | { kind: "switchWithBench" }
   | { kind: "benchDamage"; amount: number; chooseWithCardId: string };
 
 export interface AttackDef {
@@ -42,7 +53,15 @@ export interface AttackDef {
 export interface AbilityDef {
   name: string;
   text: string;
-  effect?: { kind: "discardEnergyToHeal"; energy: EnergyType; amount: number };
+  effect?: { kind: "discardEnergyToHeal"; energy: EnergyType; amount: number }
+    | { kind: "searchDeckToTop"; cardIds: string[] }
+    | { kind: "attackTwice" }
+    | { kind: "useNonExBenchAttacks" }
+    | { kind: "reduceNamedAttackCost"; names: string[] }
+    | { kind: "damageBonusWhenBehindOnPoints"; amount: number }
+    | { kind: "peekOpponentDeck" }
+    | { kind: "attachZoneEnergyOnBecomingActive" }
+    | { kind: "burnBothActivesOnEnergyAttachment"; energy: EnergyType };
 }
 
 export interface FighterCard {
@@ -60,6 +79,9 @@ export interface FighterCard {
   /** KO awards 2 points instead of 1 when true. */
   isEx: boolean;
   stage: Stage;
+  stageLabel?: "Prospect" | "Contender" | "Champion";
+  /** Display as a Prospect even when its Identity card has not been added yet. */
+  isProspect?: boolean;
   /** Optional activated or passive ability. */
   ability?: AbilityDef;
   /** Definition id of the fighter this card can evolve from. */
@@ -69,6 +91,10 @@ export interface FighterCard {
 }
 
 export type TrainerEffect =
+  | { kind: "searchNamedFighterToTop"; names: string[] }
+  | { kind: "switchDamagedOpponentBench" }
+  | { kind: "boostActiveAttackDamage"; amount: number }
+  | { kind: "searchRandomBasic" }
   | { kind: "heal"; amount: number; target: "anyOwn" | "active" }
   | { kind: "draw"; count: number }
   | { kind: "reduceRetreat"; amount: number };
@@ -98,8 +124,11 @@ export interface FighterInPlay {
   enteredTurn?: number;
   evolvedTurn?: number;
   damageReduction?: number;
+  damageVulnerability?: { amount: number; expiresAfterTurn: number };
   paralyzed?: boolean;
+  cannotRetreat?: boolean;
   burned?: boolean;
+  bleeding?: boolean;
   retreatCostIncrease?: number;
   previousStages?: FighterCard[];
   abilityUsedTurn?: number;
@@ -132,6 +161,8 @@ export interface PlayerState {
   hasRetreated: boolean;
   hasPlayedSupporter: boolean;
   retreatReduction: number;
+  attackDamageBonus?: number;
+  attacksUsedThisTurn?: number;
 }
 
 export type Phase =
@@ -146,21 +177,26 @@ export type Phase =
  */
 export type BattleEvent =
   | { kind: "abilityUsed"; player: PlayerId; uid: string; name: string }
+  | { kind: "deckPeeked"; player: PlayerId; card: CardDefinition }
   | { kind: "trainerPlayed"; player: PlayerId; card: TrainerCard }
   | { kind: "healed"; player: PlayerId; uid: string; amount: number }
   | { kind: "retreatCostReduced"; player: PlayerId; amount: number }
+  | { kind: "attackDamageBoosted"; player: PlayerId; amount: number }
   | { kind: "battleStarted"; firstPlayer: PlayerId }
   | { kind: "turnStarted"; player: PlayerId; turnNumber: number }
   | { kind: "energyGenerated"; player: PlayerId; energy: EnergyType }
   | { kind: "cardDrawn"; player: PlayerId }
+  | { kind: "deckShuffled"; player: PlayerId }
   | { kind: "energyAttached"; player: PlayerId; targetUid: string; energy: EnergyType }
   | { kind: "fighterBenched"; player: PlayerId; uid: string }
   | { kind: "evolved"; player: PlayerId; uid: string; name: string }
   | { kind: "damageReductionApplied"; player: PlayerId; uid: string; amount: number }
+  | { kind: "damageVulnerabilityApplied"; player: PlayerId; uid: string; amount: number }
   | { kind: "retreated"; player: PlayerId; outUid: string; inUid: string; paid: EnergyType[] }
+  | { kind: "switched"; player: PlayerId; outUid: string; inUid: string }
   | { kind: "promoted"; player: PlayerId; uid: string }
   | { kind: "attackUsed"; player: PlayerId; attackerUid: string; attackId: string; targetUid: string }
-  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number; attackName?: string; reason?: "burn" }
+  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number; attackName?: string; reason?: "burn" | "bleeding" }
   | { kind: "damageDealt"; player: PlayerId; uid: string; amount: number; weakness: boolean }
   | { kind: "knockedOut"; player: PlayerId; fighter: FighterInPlay; pointsAwarded: number; fromBench?: boolean }
   | { kind: "energyDiscarded"; player: PlayerId; energy: EnergyType }
@@ -181,9 +217,9 @@ export interface BattleState {
 }
 
 export type Move =
-  | { type: "useAbility"; targetUid: string }
+  | { type: "useAbility"; targetUid: string; cardId?: string }
   | { type: "evolve"; handIndex: number; targetUid: string }
-  | { type: "playTrainer"; handIndex: number; targetUid?: string }
+  | { type: "playTrainer"; handIndex: number; targetUid?: string; cardId?: string }
   | { type: "attachEnergy"; targetUid: string }
   | { type: "playBasic"; handIndex: number }
   | { type: "retreat"; benchIndex: number }

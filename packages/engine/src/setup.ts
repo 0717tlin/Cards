@@ -78,6 +78,7 @@ function buildPlayer(
     hasRetreated: false,
     hasPlayedSupporter: false,
     retreatReduction: 0,
+    attackDamageBonus: 0,
   };
 }
 

@@ -51,6 +51,8 @@ export function beginTurn(state: BattleState): BattleState {
   player.hasRetreated = false;
   player.hasPlayedSupporter = false;
   player.retreatReduction = 0;
+  player.attackDamageBonus = 0;
+  player.attacksUsedThisTurn = 0;
   player.pendingEnergy = null;
 
   const isFirstTurnOfGame = next.turnNumber === 1;
@@ -96,15 +98,28 @@ export function endTurn(state: BattleState): BattleState {
     if (!fighter) continue;
     if (fighter.paralyzed) next.log.push(`${fighter.card.name} recovered from Paralysis.`);
     fighter.paralyzed = false;
+    fighter.cannotRetreat = false;
     fighter.retreatCostIncrease = 0;
   }
   current.retreatReduction = 0;
+  current.attackDamageBonus = 0;
+  for (const player of Object.values(next.players)) {
+    for (const fighter of [player.active, ...player.bench]) {
+      if (fighter?.damageVulnerability && fighter.damageVulnerability.expiresAfterTurn <= next.turnNumber) fighter.damageVulnerability = undefined;
+    }
+  }
   const nextPlayer: PlayerId = opponentOf(next.turnPlayer);
   // Fighter checkup happens at every turn boundary, for both active fighters.
   // Apply all damage and recovery flips before resolving knockouts.
   for (const id of [current.id, nextPlayer]) {
     const fighter = next.players[id].active;
-    if (!fighter?.burned) continue;
+    if (!fighter) continue;
+    if (fighter.bleeding) {
+      fighter.damage += 10;
+      next.events.push({ kind: "damageDealt", player: id, uid: fighter.uid, amount: 10, weakness: false });
+      next.log.push(`${fighter.card.name} took 10 Bleeding damage during fighter checkup.`);
+    }
+    if (!fighter.burned) continue;
     fighter.damage += 20;
     next.events.push({ kind: "damageDealt", player: id, uid: fighter.uid, amount: 20, weakness: false });
     next.log.push(`${fighter.card.name} took 20 Burn damage during fighter checkup.`);

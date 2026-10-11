@@ -2,6 +2,30 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const memory=new Map<string,string>();
 beforeEach(()=>{vi.resetModules();memory.clear();vi.stubGlobal('localStorage',{getItem:(k:string)=>memory.get(k)??null,setItem:(k:string,v:string)=>memory.set(k,v)});vi.stubGlobal('crypto',{randomUUID:()=> 'new-deck'});});
 describe('saved decks',()=>{
+ it('deletes only the selected deck and persists deletion after reload',async()=>{
+  const {useSavedDecks}=await import('./useSavedDecks');
+  const starter=useSavedDecks.getState().decks[0]!;
+  useSavedDecks.getState().save(null,'Second Deck',starter.selection);
+  expect(useSavedDecks.getState().deleteDeck(starter.id)).toBe(true);
+  expect(useSavedDecks.getState().decks.map(d=>d.name)).toEqual(['Second Deck']);
+  vi.resetModules();
+  expect((await import('./useSavedDecks')).useSavedDecks.getState().decks.map(d=>d.name)).toEqual(['Second Deck']);
+ });
+ it('keeps the last deleted deck from returning as a starter deck',async()=>{
+  const {useSavedDecks}=await import('./useSavedDecks');
+  expect(useSavedDecks.getState().deleteDeck('starter')).toBe(true);
+  expect(memory.get('card-battle.saved-decks.v1')).toBe('[]');
+  vi.resetModules();
+  expect((await import('./useSavedDecks')).useSavedDecks.getState().decks).toEqual([]);
+ });
+ it('preserves the deck and reports deletion failures when storage cannot be written',async()=>{
+  const {useSavedDecks}=await import('./useSavedDecks');
+  const decks=useSavedDecks.getState().decks;
+  vi.stubGlobal('localStorage',{setItem:()=>{throw Error('blocked')}});
+  expect(useSavedDecks.getState().deleteDeck('starter')).toBe(false);
+  expect(useSavedDecks.getState().decks).toEqual(decks);
+  expect(useSavedDecks.getState().error).toContain("Couldn't delete");
+ });
  it('deletes whole decks containing retired cards and preserves current decks',async()=>{
   const {useSavedDecks}=await import('./useSavedDecks');
   const starter=useSavedDecks.getState().decks[0]!;

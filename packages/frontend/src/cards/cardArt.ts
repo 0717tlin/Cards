@@ -1,8 +1,8 @@
-// Resolves a card's art. For now every card uses a deterministic placeholder
-// keyed by energy type. When real assets are added, map `artKey` -> imported
-// image URL here and return it from resolveArt.
+// Local online photo placeholders; missing assets fall back to type artwork.
 
 import type { EnergyType } from "@card-game/engine";
+import { FIGHTER_PHOTOS } from "./fighterPhotos";
+import { TRAINER_PHOTOS } from "./trainerPhotos";
 
 export const ENERGY_COLOR: Record<EnergyType, string> = {
   fire: "#f4623a",
@@ -36,8 +36,7 @@ export const ENERGY_SYMBOL: Record<EnergyType, string> = {
   colorless: "✦",
 };
 
-/** Future: map real art assets by key. Empty for now = always placeholder. */
-const ART_ASSETS: Record<string, string> = {};
+const ART_ASSETS = { ...FIGHTER_PHOTOS, ...TRAINER_PHOTOS };
 
 export interface ArtResult {
   /** A real image URL when available, else null (caller renders a placeholder). */

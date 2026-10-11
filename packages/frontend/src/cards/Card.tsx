@@ -1,14 +1,29 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { isFighterCard, type FighterCard, type TrainerCard, type CardDefinition, type CardRarity, type EnergyType, type Stage } from "@card-game/engine";
+import { getFighterStageLabel, isFighterCard, type FighterCard, type TrainerCard, type CardDefinition, type CardRarity, type EnergyType } from "@card-game/engine";
 import { ENERGY_COLOR, ENERGY_SYMBOL, resolveArt } from "./cardArt";
 
-const STAGE_LABEL: Record<Stage, string> = {
-  basic: "Basic",
-  stage1: "Stage 1",
-  stage2: "Stage 2",
-};
 const RARITY_STARS: Record<CardRarity, number> = { common: 1, uncommon: 2, rare: 3, epic: 4 };
+
+/** Use layout width, rather than animation scale, to keep frames proportional. */
+function useCardFrame() {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const update = (width: number) => {
+      if (width > 0) element.style.setProperty("--card-width", `${width}px`);
+    };
+    update(parseFloat(getComputedStyle(element).width));
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (entry) update(entry.borderBoxSize[0]?.inlineSize ?? element.offsetWidth);
+    });
+    observer.observe(element, { box: "border-box" });
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
 
 /**
  * Fit a card name into its allotted width by shrinking the font when it would
@@ -101,6 +116,7 @@ export interface CardProps {
   damage?: number;
   paralyzed?: boolean;
   burned?: boolean;
+  bleeding?: boolean;
   retreatCostIncrease?: number;
   attached?: EnergyType[];
   /** Highlight the frame (e.g. the active fighter). */
@@ -123,17 +139,22 @@ export function Card({ card, ...props }: CardProps) {
 }
 
 function TrainerCardView({ card, size = "md", onClick }: Omit<CardProps, "card"> & { card: TrainerCard }) {
+  const frameRef = useCardFrame();
   const nameFit = useFitText(card.name);
   const accent = card.kind === "item" ? "#67cbb8" : "#b298e8";
   const glyph = card.id === "bandages" ? "🩹" : card.id === "footwork-drill" ? "🥊" : card.id === "cutman" ? "✚" : "🎟️";
-  return <div className={`card card--${size} card--trainer${onClick ? " card--clickable" : ""}`}
+  const art = resolveArt(card.art ?? card.id, "colorless");
+  const [failedArt, setFailedArt] = useState<string | null>(null);
+  const photoUrl = art.url !== failedArt ? art.url : null;
+  return <div ref={frameRef} className={`card card--${size} card--trainer${onClick ? " card--clickable" : ""}`}
     style={{ ["--accent-type" as string]: accent }} role={onClick ? "button" : undefined}
     tabIndex={onClick ? 0 : undefined} aria-label={onClick ? `View ${card.name}` : undefined} onClick={onClick}
     onKeyDown={onClick ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); } } : undefined}>
     <div className="card__header"><span className="card__stage">{card.kind}</span>
       <span ref={nameFit.ref} className="card__name" style={{fontSize: `${nameFit.scale}em`}}>{card.name}</span></div>
     <div className="card__art" style={{background: `linear-gradient(135deg, ${accent}, #edf6ff)`}}>
-      <span className="card__art-glyph">{glyph}</span><span className="card__art-name">{card.name}</span>
+      {photoUrl ? <img className="card__photo card__photo--trainer" src={photoUrl} alt={card.name} loading="lazy" decoding="async" draggable={false} onError={() => setFailedArt(photoUrl)} />
+        : <><span className="card__art-glyph">{glyph}</span><span className="card__art-name">{card.name}</span></>}
     </div>
     <div className="card__details"><p className="trainer-rules">{card.text}</p></div>
     <div className="card__footer trainer-limit">
@@ -149,6 +170,7 @@ function FighterCardView({
   damage,
   paralyzed = false,
   burned = false,
+  bleeding = false,
   retreatCostIncrease = 0,
   attached,
   highlight = false,
@@ -158,7 +180,10 @@ function FighterCardView({
   flyLayoutId,
   energyPlacement = "art",
 }: Omit<CardProps, "card"> & { card: FighterCard }) {
+  const frameRef = useCardFrame();
   const art = resolveArt(card.art, card.type);
+  const [failedArt, setFailedArt] = useState<string | null>(null);
+  const photoUrl = art.url !== failedArt ? art.url : null;
   const remaining = damage != null ? Math.max(0, card.hp - damage) : null;
   const clickable = !!onClick;
   const accent = ENERGY_COLOR[card.type];
@@ -166,7 +191,8 @@ function FighterCardView({
 
   return (
     <div
-      className={`card card--${size}${card.isEx ? " card--ex" : ""}${highlight ? " card--highlight" : ""}${clickable ? " card--clickable" : ""}${energyPlacement === "tray" ? " card--energy-tray" : ""}`}
+      ref={frameRef}
+      className={`card card--${size}${card.rarity === "rare" ? " card--rare" : ""}${card.isEx ? " card--ex" : ""}${highlight ? " card--highlight" : ""}${clickable ? " card--clickable" : ""}${energyPlacement === "tray" ? " card--energy-tray" : ""}`}
       style={{ ["--accent-type" as string]: accent }}
       onClick={onClick}
       role={clickable ? "button" : undefined}
@@ -180,7 +206,7 @@ function FighterCardView({
       } : undefined}
     >
       <div className="card__header">
-        <span className="card__stage">{STAGE_LABEL[card.stage]}</span>
+        <span className="card__stage">{getFighterStageLabel(card)}</span>
         <span
           ref={nameFit.ref}
           className="card__name"
@@ -205,9 +231,10 @@ function FighterCardView({
 
       <div
         className="card__art"
-        style={art.url ? { backgroundImage: `url(${art.url})` } : { background: art.placeholderBackground }}
+        style={{ background: art.placeholderBackground }}
       >
-        {!art.url && (
+        {photoUrl && <img className="card__photo" src={photoUrl} alt={card.name} loading="lazy" decoding="async" draggable={false} onError={() => setFailedArt(photoUrl)} />}
+        {!photoUrl && (
           <>
             <span className="card__art-glyph">{ENERGY_SYMBOL[card.type]}</span>
             <span className="card__art-name">{card.name}</span>
@@ -245,6 +272,7 @@ function FighterCardView({
       )}
 
       <div className="card__details">
+      {bleeding && <p className="card__status" role="status">Bleeding: 10 damage each checkup; clears on the bench</p>}
       {burned && <p className="card__status" role="status">Burned: 20 damage each checkup; tails clears Burn</p>}
       {paralyzed && <p className="card__status" role="status">Paralyzed: Cannot attack or retreat this turn</p>}
       {retreatCostIncrease > 0 && <p className="card__status">Retreat +{retreatCostIncrease} Energy this turn</p>}
@@ -258,6 +286,7 @@ function FighterCardView({
 
       <div className="card__attacks">
         {card.attacks.map((atk) => {
+          const coinDamage = atk.effects?.find(effect => effect.kind === "coinDamagePerHeads");
           const usable = !!onAttack && !!usableAttackIds?.includes(atk.id);
           return (
           <div
@@ -291,7 +320,7 @@ function FighterCardView({
               ))}
             </span>
             <span className="attack__name">{atk.name}</span>
-            <span className="attack__dmg">{atk.damage > 0 ? `${atk.damage}${atk.effects?.some(effect => ["damagePerAttachedEnergy", "flipUntilTails", "coinDamageBonus", "benchDamageBonus"].includes(effect.kind)) ? "+" : ""}` : ""}</span>
+            <span className="attack__dmg">{coinDamage?.kind === "coinDamagePerHeads" ? `${coinDamage.amount}×` : atk.damage > 0 ? `${atk.damage}${atk.effects?.some(effect => ["damagePerAttachedEnergy", "flipUntilTails", "coinDamageBonus", "benchDamageBonus", "damagedOpponentBonus"].includes(effect.kind)) ? "+" : ""}` : ""}</span>
             {atk.text && <p className="attack__text">{atk.text}</p>}
           </div>
           );

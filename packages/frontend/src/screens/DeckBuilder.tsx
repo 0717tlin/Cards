@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ALL_CARD_POOL as CARD_POOL, isFighterCard, type CardDefinition } from "@card-game/engine";
+import { ALL_CARD_POOL as CARD_POOL, getFighterStageLabel, isFighterCard, type CardDefinition } from "@card-game/engine";
 import { Card, Pop, EnergyPip } from "../cards/Card";
 import { CardZoom } from "../cards/CardZoom";
+import { CardCatalogControls, useCardCatalog } from "../cards/CardCatalogControls";
 import { useDeckBuilder, DECK_SIZE, COPY_LIMIT } from "../deck/useDeckBuilder";
 import { useBattleStore } from "../store/battleStore";
 import { useAppView } from "../navigation/useAppView";
 import { ENERGY_OPTIONS, useSavedDecks } from "../deck/useSavedDecks";
+import { CopyDeckCodeButton, ImportDeckCodeButton } from "../deck/DeckCodeControls";
 
 const ALL_CARDS: CardDefinition[] = Object.values(CARD_POOL);
 
 export function DeckBuilder() {
+  const { cards, options, setOptions } = useCardCatalog(ALL_CARDS);
   const selection = useDeckBuilder((s) => s.selection);
   const add = useDeckBuilder((s) => s.add);
   const remove = useDeckBuilder((s) => s.remove);
@@ -72,6 +75,8 @@ export function DeckBuilder() {
         <label>Deck name <input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} /></label>
         <button className="btn btn--new" disabled={!validation.legal || !name.trim() || !energyTypes.length} onClick={saveDeck}>Save deck</button>
         <button className="btn" onClick={() => setView("deckSelection")}>Saved decks</button>
+        <CopyDeckCodeButton deck={{ name, selection, energyTypes }} />
+        <ImportDeckCodeButton />
         {saved && <span className="ok small" role="status">Deck saved.</span>}
         {saveError && <span className="warn small" role="alert">{saveError}</span>}
       </div>
@@ -91,13 +96,13 @@ export function DeckBuilder() {
 
       <div className="builder">
         <section className="builder__pool">
+          <CardCatalogControls options={options} onChange={setOptions} count={cards.length} total={ALL_CARDS.length} />
           <div className="slot-label">
             Click to add (max {COPY_LIMIT} each) · right-click to remove · hold to enlarge
           </div>
           <div className="card-grid card-grid--sm">
-            {ALL_CARDS.map((c, i) => {
+            {cards.map((c, i) => {
               const count = selection[c.id] ?? 0;
-              const isBasic = isFighterCard(c) && c.stage === "basic";
               return (
                 <motion.div
                   key={c.id}
@@ -128,7 +133,7 @@ export function DeckBuilder() {
                   <Card card={c} size="sm" onClick={() => { if (held.current) { held.current = false; return; } add(c.id); }} />
                   <div className="pool-card__meta">
                     <span className="muted small">
-                      {isFighterCard(c) ? (isBasic ? "basic" : `${c.stage} · evolution`) : c.kind}
+                      {isFighterCard(c) ? getFighterStageLabel(c) : c.kind}
                     </span>
                     {count > 0 && (
                       <Pop value={count} className="count-badge">
@@ -139,6 +144,7 @@ export function DeckBuilder() {
                 </motion.div>
               );
             })}
+            {cards.length === 0 && <p className="muted">No cards match these filters.</p>}
           </div>
         </section>
 

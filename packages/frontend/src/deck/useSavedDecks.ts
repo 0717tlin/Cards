@@ -1,10 +1,8 @@
 import { create } from "zustand";
-import { ALL_CARD_POOL, DECK_PLAYER, isFighterCard, type CardDefinition, type EnergyType } from "@card-game/engine";
-export const DECK_SIZE = 20;
-export const COPY_LIMIT = 4;
-export type DeckSelection = Record<string, number>;
+import { ALL_CARD_POOL, DECK_PLAYER, DECK_ENERGY_TYPES, isFighterCard, validateDeckSelection as validateDeck, type CardDefinition, type EnergyType, type DeckSelection } from "@card-game/engine";
+export { DECK_SIZE, COPY_LIMIT, validateDeckSelection as validateDeck, type DeckSelection } from "@card-game/engine";
 export interface SavedDeck { id: string; name: string; selection: DeckSelection; energyTypes: EnergyType[] }
-export const ENERGY_OPTIONS: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting"];
+export const ENERGY_OPTIONS = DECK_ENERGY_TYPES;
 export function deckEnergies(selection: DeckSelection, types?: unknown): EnergyType[] {
   if (Array.isArray(types)) {
     const valid = [...new Set(types.filter((type): type is EnergyType => ENERGY_OPTIONS.includes(type)))];
@@ -18,17 +16,6 @@ export function deckEnergies(selection: DeckSelection, types?: unknown): EnergyT
   return [[...counts].sort((a,b) => b[1] - a[1])[0]?.[0] ?? "fire"];
 }
 const STORAGE_KEY = "card-battle.saved-decks.v1";
-export function validateDeck(selection: DeckSelection) {
-  const total = Object.values(selection).reduce((sum, count) => sum + count, 0);
-  const issues: string[] = [];
-  if (total !== DECK_SIZE) issues.push(`Deck must have exactly ${DECK_SIZE} cards (currently ${total}).`);
-  for (const [id, count] of Object.entries(selection)) {
-    if (!Object.prototype.hasOwnProperty.call(ALL_CARD_POOL, id)) issues.push(`Unknown card: ${id}.`);
-    if (!Number.isInteger(count) || count < 1 || count > COPY_LIMIT) issues.push(`Use 1–${COPY_LIMIT} copies of ${ALL_CARD_POOL[id]?.name ?? id}.`);
-  }
-  if (!Object.keys(selection).some(id => { const card = ALL_CARD_POOL[id]; return card && isFighterCard(card) && card.stage === "basic"; })) issues.push("Deck must include at least one Basic fighter.");
-  return { total, legal: issues.length === 0, issues };
-}
 export function buildDeck(selection: DeckSelection): CardDefinition[] | null {
   if (!validateDeck(selection).legal) return null;
   return Object.entries(selection).flatMap(([id, count]) => Array(count).fill(ALL_CARD_POOL[id]!));
@@ -56,10 +43,18 @@ function load(): SavedDeck[] {
 interface SavedDeckStore {
   decks: SavedDeck[];
   error: string | null;
+  deleteDeck: (id: string) => boolean;
   save: (id: string | null, name: string, selection: DeckSelection, energyTypes?: EnergyType[]) => string | null;
 }
 export const useSavedDecks = create<SavedDeckStore>((set, get) => ({
   decks: load(), error: null,
+  deleteDeck: (id) => {
+    const decks = get().decks.filter(deck => deck.id !== id);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(decks)); }
+    catch { set({error:"Couldn't delete this deck. Browser storage may be unavailable."}); return false; }
+    set({decks,error:null});
+    return true;
+  },
   save: (id, name, selection, energyTypes) => {
     if (energyTypes && !energyTypes.length) return null;
     if (!name.trim() || !validateDeck(selection).legal) return null;
