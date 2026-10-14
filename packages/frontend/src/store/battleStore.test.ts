@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useBattleStore, HUMAN, AI } from "./battleStore";
 import { AI_THINK_MS, animationTime } from "../animation/timing";
+import { CARD_POOL, getLegalMoves } from "@card-game/engine";
 
 const store = useBattleStore;
 
@@ -28,6 +29,33 @@ afterEach(() => {
 });
 
 describe("paced battle store", () => {
+  it("finishes the damage animation before enabling the attack's switch prompt", () => {
+    startAndSettle(seedWhereFirst(HUMAN));
+    const state = structuredClone(store.getState().state);
+    state.turnNumber = 4;
+    const human = state.players[HUMAN];
+    human.active!.card = CARD_POOL["alexander-volkanovski"]!;
+    human.active!.attached = ["fire", "water"];
+    human.bench = [{ ...human.active!, uid: "switch-in", card: CARD_POOL["alexander-volkanovski-ex"]!, attached: [], damage: 0 }];
+    human.pendingEnergy = "water";
+    state.players[AI].active!.card = CARD_POOL["tai-tuivasa"]!;
+    state.players[AI].active!.damage = 0;
+    store.setState({ state, busy: false, humanMoves: getLegalMoves(state) });
+    store.getState().dispatch({ type: "attack", attackId: "crafty-kickboxing" });
+    const hit = store.getState().state;
+    expect(hit.players[AI].active!.damage).toBe(40);
+    expect(hit.players[HUMAN].active!.card.id).toBe("alexander-volkanovski");
+    expect(hit.phase.kind).toBe("awaitAttackSwitch");
+    expect(store.getState().busy).toBe(true);
+    vi.advanceTimersByTime(animationTime(hit.events.slice(state.events.length)) - 1);
+    expect(store.getState().humanMoves).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(store.getState().busy).toBe(false);
+    expect(store.getState().humanMoves).toEqual([{ type: "switchAfterAttack", benchIndex: 0 }]);
+    store.getState().dispatch({ type: "switchAfterAttack", benchIndex: 0 });
+    expect(store.getState().state.players[HUMAN].active!.uid).toBe("switch-in");
+    expect(store.getState().state.turnPlayer).toBe(AI);
+  });
   it("starts a clean match after a finished game", () => {
     startAndSettle(seedWhereFirst(HUMAN));
     const finished = structuredClone(store.getState().state);

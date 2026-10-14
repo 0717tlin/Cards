@@ -16,7 +16,7 @@ function battle() {
 }
 describe("new fighters", () => {
   it.each([
-    ["giga-chikadze",60,"psychic",1,"Giga Kick",["psychic","colorless"],60],
+    ["giga-chikadze",60,"psychic",1,"Giga Kick",["psychic","colorless"],40],
     ["caio-borralho",80,"lightning",2,"Clinch Knee",["lightning"],20],
     ["bobby-green",60,"grass",1,"Trash Talk",["grass"],0],
   ])("matches the requested stats for %s", (id,hp,type,retreatCost,name,cost,damage) => {
@@ -143,7 +143,7 @@ describe("Burn and fighter checkup", () => {
     state.players.P1.active!.attached = ["psychic","grass"];
     state.players.P1.active!.burned = true;
     state.players.P1.active!.damage = 40;
-    state.players.P2.active!.damage = 20;
+    state.players.P2.active!.damage = 40;
     const hit = applyMove(state,{type:"attack",attackId:"giga-kick"});
     expect(hit.players.P1.active).toBeNull();
     expect(hit.players.P2.active).toBeNull();

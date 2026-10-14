@@ -1,5 +1,8 @@
 // Online placeholders; sources: public/images/fighters/sources.json
 export const FIGHTER_PHOTOS: Record<string, string> = {
+  "diego-lopes": "/images/fighters/diego-lopes.webp",
+  "chris-curtis": "/images/fighters/chris-curtis.webp",
+  "marcin-tybura": "/images/fighters/marcin-tybura.webp",
   "sean-strickland": "/images/fighters/sean-strickland.webp",
   "khalil-rountree": "/images/fighters/khalil-rountree-jr.webp",
   "alexander-volkanovski": "/images/fighters/alexander-volkanovski.webp",

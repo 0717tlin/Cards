@@ -119,16 +119,25 @@ export function endTurn(state: BattleState): BattleState {
       next.events.push({ kind: "damageDealt", player: id, uid: fighter.uid, amount: 10, weakness: false });
       next.log.push(`${fighter.card.name} took 10 Bleeding damage during fighter checkup.`);
     }
-    if (!fighter.burned) continue;
-    fighter.damage += 20;
-    next.events.push({ kind: "damageDealt", player: id, uid: fighter.uid, amount: 20, weakness: false });
-    next.log.push(`${fighter.card.name} took 20 Burn damage during fighter checkup.`);
-    const roll = nextFloat(next.rngState);
-    next.rngState = roll.state;
-    const result = roll.value < 0.5 ? "heads" : "tails";
-    next.events.push({ kind: "coinFlipped", player: id, result, flip: 1, bonus: 0, reason: "burn" });
-    fighter.burned = result === "heads";
-    next.log.push(`${fighter.card.name}'s Burn check: ${result}. ${fighter.burned ? "Burn remains." : "Burn removed."}`);
+    if (fighter.burned) {
+      fighter.damage += 20;
+      next.events.push({ kind: "damageDealt", player: id, uid: fighter.uid, amount: 20, weakness: false });
+      next.log.push(`${fighter.card.name} took 20 Burn damage during fighter checkup.`);
+      const roll = nextFloat(next.rngState);
+      next.rngState = roll.state;
+      const result = roll.value < 0.5 ? "heads" : "tails";
+      next.events.push({ kind: "coinFlipped", player: id, result, flip: 1, bonus: 0, reason: "burn" });
+      fighter.burned = result === "heads";
+      next.log.push(`${fighter.card.name}'s Burn check: ${result}. ${fighter.burned ? "Burn remains." : "Burn removed."}`);
+    }
+    if (fighter.asleep) {
+      const roll = nextFloat(next.rngState);
+      next.rngState = roll.state;
+      const result = roll.value < 0.5 ? "heads" : "tails";
+      next.events.push({ kind: "coinFlipped", player: id, result, flip: 1, bonus: 0, reason: "sleep" });
+      fighter.asleep = result === "tails";
+      next.log.push(`${fighter.card.name}'s Sleep check: ${result}. ${fighter.asleep ? "Still asleep." : "Woke up."}`);
+    }
   }
   for (const id of [current.id, nextPlayer]) {
     const player = next.players[id];

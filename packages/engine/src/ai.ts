@@ -23,7 +23,7 @@ export function chooseMove(state: BattleState): Move {
   root.events = [];
   root.log = [];
   root.rngState = 0;
-  if (root.phase.kind === "awaitPromotion") return choosePromotion(root, owner, legal);
+  if (root.phase.kind !== "main") return choosePromotion(root, owner, legal);
 
   let best = bestFinish(root, owner);
   const baselineScore = best.score;
@@ -104,13 +104,15 @@ function forecastMove(state: BattleState, owner: PlayerId, move: Move, attacksLe
   const attack = move.type === "attack" ? getAvailableAttacks(state.players[owner].active!, state.players[owner].bench).find(a => a.id === move.attackId) : undefined;
   const random = attack?.effects?.some(e => ["coinDamageBonus", "coinDamagePerHeads", "flipUntilTails", "coinBleed", "coinAttackFailsOnTails"].includes(e.kind)
     || (e.kind === "benchDamage" && move.type === "attack" && !move.targetUid))
-    || state.players.P1.active?.burned || state.players.P2.active?.burned;
+    || attack?.effects?.some(effect => effect.kind === "sleep")
+    || state.players.P1.active?.burned || state.players.P2.active?.burned
+    || state.players.P1.active?.asleep || state.players.P2.active?.asleep;
   const seeds = random ? FORECAST_SEEDS : [0];
   let total = 0;
   for (const seed of seeds) {
     let next = applyMove({ ...state, rngState: seed }, move);
     // The opponent must promote between Joshua's attacks; assume their best replacement.
-    while (!next.winner && next.phase.kind === "awaitPromotion") {
+    while (!next.winner && next.phase.kind !== "main") {
       const promoter = next.phase.player;
       next = applyMove(next, choosePromotion(next, promoter, getLegalMoves(next)));
     }
@@ -175,7 +177,7 @@ function developmentValue(fighter: FighterInPlay, player: PlayerState, defender:
 /** Public opposing energy zones and board cards are fair information; hands and deck order are not. */
 function counterDamage(opponent: PlayerState, defender: FighterInPlay, defenderPoints: number): number {
   const fighter = opponent.active;
-  if (!fighter || fighter.paralyzed) return 0;
+  if (!fighter || fighter.paralyzed || fighter.asleep) return 0;
   const energyTypes = opponent.energyTypes?.length ? opponent.energyTypes : [opponent.energyType];
   let total = 0;
   for (const energy of energyTypes) {
@@ -222,12 +224,13 @@ function boardScore(state: BattleState, owner: PlayerId): number {
     score += Math.min(fighter.attached.length, usefulEnergy) * 0.4;
     if (fighter.bleeding) score -= 8;
     if (fighter.burned) score -= 12;
+    if (fighter.asleep) score -= 12;
   }
   for (const fighter of ownFighters(enemy)) score -= Math.max(0, fighter.card.hp - fighter.damage) * (fighter === enemy.active ? 0.75 : 0.12);
   if (player.active) {
     const active = player.active;
     score += Math.max(0, active.card.hp - active.damage) * 0.1;
-    const readyDamage = active.paralyzed ? 0 : Math.max(0, ...getAvailableAttacks(active, player.bench).filter(a => canPayCost(active.attached, a.cost)).map(a => attackPotential(active, enemy.active, a, player, enemy.points)));
+    const readyDamage = active.paralyzed || active.asleep ? 0 : Math.max(0, ...getAvailableAttacks(active, player.bench).filter(a => canPayCost(active.attached, a.cost)).map(a => attackPotential(active, enemy.active, a, player, enemy.points)));
     score += readyDamage * 0.55;
     const incoming = counterDamage(enemy, active, player.points);
     score -= incoming * 0.25;

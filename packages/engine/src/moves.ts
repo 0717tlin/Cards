@@ -5,14 +5,14 @@
 
 import type { BattleState, FighterInPlay, Move, PlayerId, PlayerState } from "./types.js";
 import { MAX_BENCH, POINTS_TO_WIN, opponentOf, isFighterCard } from "./types.js";
-import { canPayCost, computeDamage, getAvailableAttacks, matchesNamedNonEx, isKnockedOut, isWeakTo, pointsForKo } from "./combat.js";
+import { canPayCost, computeDamage, getAvailableAttacks, matchesNamedNonEx, isKnockedOut, isWeakTo, pointsForKo, passiveAttackDamageReduction } from "./combat.js";
 import { cloneState, endTurn } from "./turn.js";
 import { toInPlay } from "./setup.js";
 import { nextFloat, nextInt, shuffle } from "./rng.js";
 
 /** Who is expected to act right now (normally turnPlayer; the promoter in awaitPromotion). */
 export function actingPlayer(state: BattleState): PlayerId {
-  if (state.phase.kind === "awaitPromotion") return state.phase.player;
+  if (state.phase.kind !== "main") return state.phase.player;
   return state.turnPlayer;
 }
 
@@ -22,6 +22,9 @@ export function getRetreatCost(player: PlayerState): number {
 
 export function getLegalMoves(state: BattleState): Move[] {
   if (state.winner) return [];
+  if (state.phase.kind === "awaitAttackSwitch") {
+    return state.players[state.phase.player].bench.map((_, benchIndex) => ({ type: "switchAfterAttack", benchIndex }));
+  }
 
   // In promotion phase, only the promoting player may act, and only via promote.
   if (state.phase.kind === "awaitPromotion") {
@@ -117,7 +120,9 @@ export function getLegalMoves(state: BattleState): Move[] {
   if (
     player.active &&
     !player.active.paralyzed &&
+    !player.active.asleep &&
     !player.active.cannotRetreat &&
+    state.players[opponentOf(player.id)].active?.card.ability?.effect?.kind !== "preventOpponentRetreat" &&
     !player.hasRetreated &&
     player.active.attached.length >= getRetreatCost(player)
   ) {
@@ -127,15 +132,11 @@ export function getLegalMoves(state: BattleState): Move[] {
   }
 
   // Attack with the active fighter if its cost is paid. Attacking ends the turn.
-  if (player.active && !player.active.paralyzed && (player.attacksUsedThisTurn ?? 0) < (player.active.card.ability?.effect?.kind === "attackTwice" ? 2 : 1)) {
+  if (player.active && !player.active.paralyzed && !player.active.asleep && (player.attacksUsedThisTurn ?? 0) < (player.active.card.ability?.effect?.kind === "attackTwice" ? 2 : 1)) {
     for (const attack of getAvailableAttacks(player.active, player.bench)) {
       if (canPayCost(player.active.attached, attack.cost)) {
         if (attack.effects?.some(effect => effect.kind === "damageAnyFighter")) {
           for (const target of fightersInPlay(state.players[opponentOf(player.id)])) moves.push({ type: "attack", attackId: attack.id, targetUid: target.uid });
-          continue;
-        }
-        if (attack.effects?.some(effect => effect.kind === "switchWithBench") && player.bench.length) {
-          for (const target of player.bench) moves.push({ type: "attack", attackId: attack.id, targetUid: target.uid });
           continue;
         }
         const effect = attack.effects?.find(effect => effect.kind === "benchDamage");
@@ -177,6 +178,7 @@ function movesEqual(a: Move, b: Move): boolean {
     case "attack":
       return a.attackId === (b as typeof a).attackId && a.targetUid === (b as typeof a).targetUid;
     case "promote":
+    case "switchAfterAttack":
       return a.benchIndex === (b as typeof a).benchIndex;
     case "pass":
       return true;
@@ -190,6 +192,18 @@ export function applyMove(state: BattleState, move: Move): BattleState {
   }
 
   switch (move.type) {
+    case "switchAfterAttack": {
+      const next = cloneState(state);
+      if (next.phase.kind !== "awaitAttackSwitch") throw new Error("No attack switch is pending.");
+      const { player: playerId, continues } = next.phase;
+      const player = next.players[playerId];
+      switchActiveFromBench(next, player, player.bench[move.benchIndex]!.uid);
+      next.phase = { kind: "main" };
+      if (!continues) return endTurn(next);
+      const defenderId = opponentOf(playerId);
+      if (!next.players[defenderId].active) next.phase = { kind: "awaitPromotion", player: defenderId };
+      return next;
+    }
     case "useAbility": {
       const next = cloneState(state);
       const player = next.players[next.turnPlayer];
@@ -237,6 +251,7 @@ export function applyMove(state: BattleState, move: Move): BattleState {
       fighter.damageReduction = 0;
       fighter.damageVulnerability = undefined;
       fighter.paralyzed = false;
+      fighter.asleep = false;
       fighter.burned = false;
       fighter.retreatCostIncrease = 0;
       player.hand.splice(move.handIndex, 1);
@@ -334,6 +349,7 @@ function applyRetreat(state: BattleState, benchIndex: number): BattleState {
   active.damageReduction = 0;
   active.damageVulnerability = undefined;
   active.paralyzed = false;
+  active.asleep = false;
   active.cannotRetreat = false;
   active.burned = false;
   active.bleeding = false;
@@ -379,6 +395,7 @@ function switchActiveFromBench(state: BattleState, player: PlayerState, targetUi
   outgoing.damageReduction = 0;
   outgoing.damageVulnerability = undefined;
   outgoing.paralyzed = false;
+  outgoing.asleep = false;
   outgoing.cannotRetreat = false;
   outgoing.burned = false;
   outgoing.bleeding = false;
@@ -464,7 +481,11 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
   const attack = getAvailableAttacks(attackingFighter, attacker.bench).find((a) => a.id === attackId)!;
   attacker.attacksUsedThisTurn = (attacker.attacksUsedThisTurn ?? 0) + 1;
   const continues = attackingFighter.card.ability?.effect?.kind === "attackTwice" && attacker.attacksUsedThisTurn < 2;
-  const finish = () => {
+  const finish = (allowSwitch = false) => {
+    if (allowSwitch && attack.effects?.some(effect => effect.kind === "switchWithBench") && attacker.bench.length) {
+      next.phase = { kind: "awaitAttackSwitch", player: attackerId, continues };
+      return next;
+    }
     if (!continues) return endTurn(next);
     if (!defender.active) next.phase = { kind: "awaitPromotion", player: defenderId };
     return next;
@@ -502,10 +523,11 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
       next.log.push(`${attackingFighter.card.name} used ${attack.name}, but the opponent's bench is empty.`);
       return finish();
     }
-    // Bench damage is fixed; weakness and active-fighter damage modifiers do not apply.
-    target.damage += amount;
-    next.log.push(`${attackingFighter.card.name} used ${attack.name} for ${amount} damage to benched ${target.card.name}.`);
-    next.events.push({ kind: "damageDealt", player: defenderId, uid: target.uid, amount, weakness: false });
+    // Bench damage ignores weakness and active-fighter modifiers, but respects the target's passive defense.
+    const damage = Math.max(0, amount - passiveAttackDamageReduction(target));
+    target.damage += damage;
+    next.log.push(`${attackingFighter.card.name} used ${attack.name} for ${damage} damage to benched ${target.card.name}.`);
+    next.events.push({ kind: "damageDealt", player: defenderId, uid: target.uid, amount: damage, weakness: false });
     if (isKnockedOut(target)) {
       const points = pointsForKo(target);
       attacker.points += points;
@@ -600,6 +622,10 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
         defendingFighter.burned = true;
         next.log.push(`${defendingFighter.card.name} is Burned.`);
       }
+      if (effect.kind === "sleep") {
+        defendingFighter.asleep = true;
+        next.log.push(`${defendingFighter.card.name} is Asleep.`);
+      }
       if (effect.kind === "increaseRetreatCost") {
         defendingFighter.retreatCostIncrease = (defendingFighter.retreatCostIncrease ?? 0) + effect.amount;
         next.log.push(`${defendingFighter.card.name}'s retreat cost increases by ${effect.amount} Energy for its next turn.`);
@@ -610,8 +636,6 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
       }
     }
   }
-
-  if (attack.effects?.some(effect => effect.kind === "switchWithBench")) switchActiveFromBench(next, attacker, targetUid);
 
   if (isKnockedOut(defendingFighter)) {
     const points = pointsForKo(defendingFighter);
@@ -650,9 +674,9 @@ function applyAttack(state: BattleState, attackId: string, targetUid?: string): 
     }
 
     // Defender must promote before play continues.
-    return finish();
+    return finish(true);
   }
 
   // No KO: attacking ends the turn normally.
-  return finish();
+  return finish(true);
 }

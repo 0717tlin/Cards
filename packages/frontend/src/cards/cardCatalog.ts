@@ -1,6 +1,6 @@
 import { isFighterCard, type CardDefinition, type CardRarity, type EnergyType } from "@card-game/engine";
 
-export const CARD_TYPES: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting", "colorless"];
+export const CARD_TYPES: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting", "steel", "colorless"];
 export const CARD_RARITIES: CardRarity[] = ["common", "uncommon", "rare", "epic"];
 export type CardFilter = "all" | "fighter" | EnergyType | "item" | "supporter";
 export interface CardCatalogOptions {

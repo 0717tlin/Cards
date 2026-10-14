@@ -70,7 +70,8 @@ describe("Activated deck search", () => {
     const state = battle();
     state.players.P1.bench = [];
     const move = chooseMove(state);
-    expect(move).toEqual({ type: "useAbility", targetUid: state.players.P1.active!.uid, cardId: islam.id });
+    expect(move).toMatchObject({ type: "useAbility", targetUid: state.players.P1.active!.uid });
+    expect(move.type === "useAbility" && [islam.id, umar.id].includes(move.cardId!)).toBe(true);
     const next = applyMove(state, move);
     expect(chooseMove(next).type).not.toBe("useAbility");
   });

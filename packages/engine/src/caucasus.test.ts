@@ -21,9 +21,9 @@ function battle(card: FighterCard = islam) {
 describe("Father's Plan and Caucasus support", () => {
   it("searches all named non-ex stages, consumes the item, and never draws or shuffles", () => {
     const state = battle();
-    const eligible = [CARD_POOL["islam-makhachev-prospect"]!, CARD_POOL["islam-makhachev-contender"]!, islam, umar,
+    const eligible = [khabib, CARD_POOL["islam-makhachev-prospect"]!, CARD_POOL["islam-makhachev-contender"]!, islam, umar,
       { ...umar, id: "umar-champion", stage: "stage2" as const }];
-    const excluded = [CARD_POOL["islam-makhachev-ex"]!, { ...umar, id: "umar-ex", isEx: true }, khabib];
+    const excluded = [CARD_POOL["islam-makhachev-ex"]!, { ...umar, id: "umar-ex", isEx: true }, { ...khabib, id: "khabib-ex", isEx: true }, CARD_POOL.merab!];
     state.players.P1.deck = [...excluded, ...eligible, islam]; state.players.P1.hand = [plan];
     state.players.P1.hasPlayedSupporter = true;
     const snapshot = structuredClone(state);
@@ -52,7 +52,7 @@ describe("Father's Plan and Caucasus support", () => {
       expect(getAvailableAttacks(active, [toInPlay(khabib), toInPlay(khabib)])[0]!.cost).toEqual(["water", "colorless"]);
       expect(active).toEqual(before);
     }
-    const state = battle(); state.players.P1.active!.attached = ["water"];
+    const state = battle(); state.players.P1.active!.attached = ["water", "colorless"];
     expect(getLegalMoves(state)).not.toContainEqual({ type: "attack", attackId: "koshi-guruma" });
     state.players.P1.bench = [toInPlay(khabib)];
     expect(getLegalMoves(state)).toContainEqual({ type: "attack", attackId: "koshi-guruma" });
@@ -94,27 +94,47 @@ describe("Father's Plan and Caucasus support", () => {
   });
 });
 
-describe("Koshi Guruma's defending-fighter retreat lock", () => {
-  it("blocks retreat but allows attacks and expires after the defender's turn", () => {
+describe("Ground Control", () => {
+  it("immediately blocks retreat, allows attacks, and remains active across turns", () => {
+    let state = applyMove(battle(), { type: "pass" });
+    expect(getLegalMoves(state).some(move => move.type === "retreat")).toBe(false);
+    expect(getLegalMoves(state).some(move => move.type === "attack")).toBe(true);
+    expect(() => applyMove(state, { type: "retreat", benchIndex: 0 })).toThrow("Illegal move");
+    state = applyMove(applyMove(state, { type: "pass" }), { type: "pass" });
+    expect(getLegalMoves(state).some(move => move.type === "retreat")).toBe(false);
+  });
+
+  it("ends as soon as Islam retreats and does not work from the bench", () => {
     const state = battle(); state.players.P1.active!.attached = ["water", "colorless"];
-    const next = applyMove(state, { type: "attack", attackId: "koshi-guruma" });
-    expect(next.players.P2.active!.damage).toBe(80);
-    expect(next.players.P2.active!.cannotRetreat).toBe(true);
+    state.players.P1.bench = [toInPlay(khabib)];
+    const switched = applyMove(state, { type: "retreat", benchIndex: 0 });
+    const next = applyMove(switched, { type: "pass" });
+    expect(next.players.P1.bench[0]!.card.id).toBe(islam.id);
+    expect(getLegalMoves(next)).toContainEqual({ type: "retreat", benchIndex: 0 });
+  });
+
+  it("allows forced switches and blocks the replacement opponent while Islam stays active", () => {
+    const state = battle();
+    state.players.P1.hand = [TRAINER_POOL["ali-abdelaziz"]!]; state.players.P2.bench[0]!.damage = 10;
+    const incoming = state.players.P2.bench[0]!.uid;
+    const switched = applyMove(state, { type: "playTrainer", handIndex: 0, targetUid: incoming });
+    switched.players.P2.active!.attached = ["water"];
+    const next = applyMove(switched, { type: "pass" });
+    expect(next.players.P2.active!.uid).toBe(incoming);
     expect(getLegalMoves(next).some(move => move.type === "retreat")).toBe(false);
     expect(getLegalMoves(next).some(move => move.type === "attack")).toBe(true);
-    const expired = applyMove(applyMove(next, { type: "pass" }), { type: "pass" });
-    expect(expired.players.P2.active!.cannotRetreat).toBe(false);
-    expect(getLegalMoves(expired)).toContainEqual({ type: "retreat", benchIndex: 0 });
   });
-  it("permits forced switching and does not transfer the lock to the new active fighter", () => {
-    const state = battle(); state.players.P1.active!.attached = ["water", "colorless"];
-    let next = applyMove(state, { type: "attack", attackId: "koshi-guruma" });
-    next = applyMove(next, { type: "pass" });
-    next.players.P1.hand = [TRAINER_POOL["ali-abdelaziz"]!]; next.players.P2.bench[0]!.damage = 10;
-    const incoming = next.players.P2.bench[0]!.uid;
-    next = applyMove(next, { type: "playTrainer", handIndex: 0, targetUid: incoming });
-    expect(next.players.P2.active!.uid).toBe(incoming);
+
+  it("leaves Koshi Guruma with no lingering effect after Islam is switched out", () => {
+    const state = battle(); state.players.P1.active!.attached = ["water", "colorless", "colorless"];
+    state.players.P1.bench = [toInPlay(khabib)];
+    const next = applyMove(state, { type: "attack", attackId: "koshi-guruma" });
+    expect(next.players.P2.active!.damage).toBe(100);
     expect(!!next.players.P2.active!.cannotRetreat).toBe(false);
-    expect(next.players.P2.bench[0]!.cannotRetreat).toBe(false);
+    expect(islam.attacks[0]!.effects).toBeUndefined();
+    next.players.P1.bench[0]!.damage = 10;
+    next.players.P2.hand = [TRAINER_POOL["ali-abdelaziz"]!];
+    const moved = applyMove(next, { type: "playTrainer", handIndex: 0, targetUid: next.players.P1.bench[0]!.uid });
+    expect(getLegalMoves(moved)).toContainEqual({ type: "retreat", benchIndex: 0 });
   });
 });

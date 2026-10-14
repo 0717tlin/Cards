@@ -37,14 +37,17 @@ describe("The Last Stylebender's Hatake", () => {
 
   it("uses Stylebender's type and copied attack effects without changing its source", () => {
     const state = battle("islam-makhachev");
-    state.players.P1.active!.attached = ["water", "colorless"];
+    state.players.P1.active!.attached = ["water", "colorless", "colorless"];
     state.players.P2.active!.card = { ...state.players.P2.active!.card, weakness: "psychic" };
+    state.players.P2.active!.attached = Array(4).fill("colorless");
     const before = structuredClone(state);
     const copied = getAvailableAttacks(state.players.P1.active!, state.players.P1.bench)[0]!;
-    expect(computeDamage(state.players.P1.active!, state.players.P2.active!, copied, 0, state.players.P1.bench)).toBe(100);
+    expect(computeDamage(state.players.P1.active!, state.players.P2.active!, copied, 0, state.players.P1.bench)).toBe(120);
     const next = applyMove(state, { type: "attack", attackId: "koshi-guruma" });
-    expect(next.players.P2.active!.damage).toBe(100);
-    expect(next.players.P1.active!.attached).toEqual(["water", "colorless"]);
+    expect(next.players.P2.active!.damage).toBe(120);
+    expect(next.players.P1.active!.attached).toEqual(["water", "colorless", "colorless"]);
+    expect(!!next.players.P2.active!.cannotRetreat).toBe(false);
+    expect(getLegalMoves(next)).toContainEqual({ type: "retreat", benchIndex: 0 });
     expect(next.players.P1.bench).toMatchObject(state.players.P1.bench);
     expect(next.turnPlayer).toBe("P2"); expect(state).toEqual(before);
   });

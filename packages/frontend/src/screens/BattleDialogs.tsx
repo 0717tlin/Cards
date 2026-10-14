@@ -51,16 +51,16 @@ export function BattleLog({ lines, onClose }: { lines: string[]; onClose: () => 
   </Dialog>;
 }
 
-export function ChooseActive({ bench, moves, onMove, onClose, retreat = false }: {
-  bench: FighterInPlay[]; moves: Move[]; onMove: (move: Move) => void; onClose?: () => void; retreat?: boolean;
+export function ChooseActive({ bench, moves, onMove, onClose, retreat = false, attackSwitch = false }: {
+  bench: FighterInPlay[]; moves: Move[]; onMove: (move: Move) => void; onClose?: () => void; retreat?: boolean; attackSwitch?: boolean;
 }) {
   return <Dialog title={retreat ? "Choose a fighter to switch in" : "Choose your new active fighter"} onClose={onClose}>
-    <p className="muted small">{retreat ? "Select a benched fighter. Your active will pay its retreat cost." : "Your active was knocked out. Choose a fighter from your bench to continue."}</p>
+    <p className="muted small">{attackSwitch ? "Attack damage has been dealt. Choose a benched fighter to switch into the active spot." : retreat ? "Select a benched fighter. Your active will pay its retreat cost." : "Your active was knocked out. Choose a fighter from your bench to continue."}</p>
     <div className="fighter-choices">
       {bench.map((fighter, benchIndex) => {
-        const move = moves.find((candidate) => candidate.type === (retreat ? "retreat" : "promote") && candidate.benchIndex === benchIndex);
+        const move = moves.find((candidate) => candidate.type === (attackSwitch ? "switchAfterAttack" : retreat ? "retreat" : "promote") && candidate.benchIndex === benchIndex);
         return <div key={fighter.uid} className="fighter-choice">
-          <Card card={fighter.card} size="md" damage={fighter.damage} paralyzed={fighter.paralyzed} burned={fighter.burned} bleeding={fighter.bleeding} retreatCostIncrease={fighter.retreatCostIncrease} attached={fighter.attached} onClick={move ? () => onMove(move) : undefined} />
+          <Card card={fighter.card} size="md" damage={fighter.damage} paralyzed={fighter.paralyzed} asleep={fighter.asleep} burned={fighter.burned} bleeding={fighter.bleeding} retreatCostIncrease={fighter.retreatCostIncrease} attached={fighter.attached} onClick={move ? () => onMove(move) : undefined} />
           <button className="btn btn--promote" disabled={!move} onClick={() => move && onMove(move)}>Choose {fighter.card.name}</button>
         </div>;
       })}
@@ -82,7 +82,7 @@ export function FighterDetails({ card, fighter, active, moves, bench, onMove, on
   return <Dialog title={card.name} onClose={onClose}>
     <div className="fighter-details">
       <div className={fighter ? "fighter-details__card fighter-details__card--energy" : "fighter-details__card"}>
-        <Card card={card} size="lg" damage={fighter?.damage} paralyzed={fighter?.paralyzed} burned={fighter?.burned} bleeding={fighter?.bleeding} retreatCostIncrease={fighter?.retreatCostIncrease} attached={fighter?.attached} energyPlacement={fighter ? "tray" : "art"} />
+        <Card card={card} size="lg" damage={fighter?.damage} paralyzed={fighter?.paralyzed} asleep={fighter?.asleep} burned={fighter?.burned} bleeding={fighter?.bleeding} retreatCostIncrease={fighter?.retreatCostIncrease} attached={fighter?.attached} energyPlacement={fighter ? "tray" : "art"} />
       </div>
       <div className="fighter-actions">
         {fighter && card.ability?.effect?.kind === "peekOpponentDeck" && <button className="btn" disabled={!moves.some(move => move.type === "useAbility")} onClick={() => { const move = moves.find(move => move.type === "useAbility"); if (move) onMove(move); }}>Download · View opponent's top card</button>}

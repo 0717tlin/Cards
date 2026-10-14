@@ -40,8 +40,11 @@ This game is a UFC-themed card battler. The card pool contains UFC fighters and 
 - **Weakness**: if the defending fighter's type matches the attacker's weakness, damage is increased (fixed +20 in TCG Pocket; final value confirmed in the spec).
 - **Retreat cost**: energy that must be discarded to move the active fighter to the bench.
 - **Attacks** have an energy cost (count and/or specific types) and a damage value, and may have extra effects.
-- **Father's Plan** searches the deck for a non-ex fighter whose printed name is Islam Makhachev or Umar Nurmagomedov and places it on top. Any evolution stage is eligible; it does not draw or shuffle.
-- **From the Mountains of Caucasus** reduces those same named non-ex fighters' attacks by one Colorless requirement while Khabib is active or benched. Specific energy requirements remain; multiple Khabib do not stack this discount.
-- **Koshi Guruma** prevents the defending fighter from retreating during its next turn. It still may attack or be switched by an effect. The restriction clears on returning to the bench or at the end of its owner's turn.
+- **Steel** is a fighter and energy type, with Chris Curtis and Marcin Tybura as simple Common basics. Tommy McMillan is also Steel.
+- **Switch Kick** deals damage first. If the attacker has a bench, play pauses for its owner to choose a replacement active fighter; the switch resolves before checkup and the end of the turn. A winning knockout ends the game without a switch prompt.
+- **Asleep** fighters cannot attack or retreat. At every fighter checkup, flip a coin for each asleep active fighter; heads wakes it up, tails leaves it asleep. Sleep causes no damage, persists until recovery, and clears when the fighter goes to the bench or evolves.
+- **Father's Plan** searches the deck for a non-ex fighter whose printed name is Khabib Nurmagomedov, Islam Makhachev, or Umar Nurmagomedov and places it on top. Any evolution stage is eligible; it does not draw or shuffle.
+- **From the Mountains of Caucasus** reduces non-ex Islam Makhachev and Umar Nurmagomedov attacks by one Colorless requirement while Khabib is active or benched. Specific energy requirements remain; multiple Khabib do not stack this discount.
+- **Ground Control** prevents the opponent's active fighter from retreating while Champion Islam is active. It applies immediately without attacking, follows replacement opposing active fighters, and ends when Islam leaves the active spot. Attacks and forced switches remain legal. Koshi Guruma itself has no effect.
 
 Anything ambiguous here is pinned down precisely in the battle-system spec before implementation.

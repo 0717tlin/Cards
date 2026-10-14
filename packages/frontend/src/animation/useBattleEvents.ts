@@ -42,7 +42,7 @@ export interface KoGhost {
 }
 
 export interface BattleEffects {
-  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number; attackName?: string; reason?: "burn" | "bleeding" } | null;
+  coin: { result: "heads" | "tails"; flip: number; bonus: number; key: number; attackName?: string; reason?: "burn" | "bleeding" | "sleep" } | null;
   turnBanner: { player: PlayerId; key: number } | null;
   /** Attacker currently lunging. */
   lungeUid: string | null;

@@ -157,7 +157,8 @@ describe("Bleeding", () => {
   });
   it("clears on an attack switch", () => {
     const s=battle("alexander-volkanovski"); s.players.P1.active!.bleeding=true;
-    const n=applyMove(s,{type:"attack",attackId:"crafty-kickboxing",targetUid:s.players.P1.bench[0]!.uid});
+    const hit=applyMove(s,{type:"attack",attackId:"crafty-kickboxing"});
+    const n=applyMove(hit,{type:"switchAfterAttack",benchIndex:0});
     expect(n.players.P1.bench[0]!.bleeding).toBe(false);
   });
   it("can knock out an ex for two points during checkup", () => {

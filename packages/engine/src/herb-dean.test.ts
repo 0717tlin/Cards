@@ -47,7 +47,7 @@ describe("Herb Dean", () => {
     state = applyMove(state, { type: "playTrainer", handIndex: 0 });
     state = applyMove(state, { type: "retreat", benchIndex: 0 });
     const hit = applyMove(state, { type: "attack", attackId: "giga-kick" });
-    expect(hit.players.P2.active!.damage).toBe(70);
+    expect(hit.players.P2.active!.damage).toBe(50);
   });
 
   it("expires when passing and never boosts the opponent or a later turn", () => {

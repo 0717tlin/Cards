@@ -24,12 +24,15 @@ function battle() {
 }
 
 describe("Volkanovski's switching and zone energy", () => {
-  it("requires choosing your own bench target when the bench is occupied", () => {
+  it("deals damage before offering only own-bench switch choices", () => {
     const state = battle();
-    for (const fighter of state.players.P1.bench) {
-      expect(getLegalMoves(state)).toContainEqual({ type: "attack", attackId: "crafty-kickboxing", targetUid: fighter.uid });
-    }
-    expect(() => applyMove(state, { type: "attack", attackId: "crafty-kickboxing" })).toThrow("Illegal move");
+    expect(getLegalMoves(state)).toContainEqual({ type: "attack", attackId: "crafty-kickboxing" });
+    const hit = applyMove(state, { type: "attack", attackId: "crafty-kickboxing" });
+    expect(hit.players.P2.active!.damage).toBe(40);
+    expect(hit.players.P1.active!.uid).toBe(state.players.P1.active!.uid);
+    expect(hit.phase).toEqual({ kind: "awaitAttackSwitch", player: "P1", continues: false });
+    expect(getLegalMoves(hit)).toEqual(state.players.P1.bench.map((_, benchIndex) => ({ type: "switchAfterAttack", benchIndex })));
+    expect(() => applyMove(hit, { type: "pass" })).toThrow("Illegal move");
     expect(() => applyMove(state, { type: "attack", attackId: "crafty-kickboxing", targetUid: state.players.P2.active!.uid })).toThrow("Illegal move");
   });
 
@@ -42,7 +45,9 @@ describe("Volkanovski's switching and zone energy", () => {
     outgoing.retreatCostIncrease = 2;
     const incoming = state.players.P1.bench[0]!;
     const snapshot = structuredClone(state);
-    const next = applyMove(state, { type: "attack", attackId: "crafty-kickboxing", targetUid: incoming.uid });
+    const hit = applyMove(state, { type: "attack", attackId: "crafty-kickboxing" });
+    expect(hit.events.some(event => event.kind === "switched")).toBe(false);
+    const next = applyMove(hit, { type: "switchAfterAttack", benchIndex: 0 });
     expect(next.players.P2.active!.damage).toBe(40);
     expect(next.players.P1.active).toMatchObject({ uid: incoming.uid, attached: ["water"] });
     expect(next.players.P1.bench[0]).toMatchObject({ uid: outgoing.uid, attached: ["fire", "water"], burned: false, damageReduction: 0, retreatCostIncrease: 0 });
@@ -66,11 +71,23 @@ describe("Volkanovski's switching and zone energy", () => {
     expect(next.events.some(event => event.kind === "switched")).toBe(false);
   });
 
+  it("ends a winning knockout without asking for an unnecessary switch", () => {
+    const state = battle(); state.players.P1.points = 2;
+    state.players.P2.active!.damage = 100;
+    const next = applyMove(state, { type: "attack", attackId: "crafty-kickboxing" });
+    expect(next.winner).toBe("P1");
+    expect(next.phase.kind).not.toBe("awaitAttackSwitch");
+    expect(getLegalMoves(next)).toEqual([]);
+  });
+
   it("switches before continuing through an opposing knockout and promotion", () => {
     const state = battle();
     state.players.P2.active!.damage = 100;
     state.players.P2.bench = [toInPlay(CARD_POOL.merab!)];
-    const next = applyMove(state, { type: "attack", attackId: "crafty-kickboxing", targetUid: state.players.P1.bench[0]!.uid });
+    const hit = applyMove(state, { type: "attack", attackId: "crafty-kickboxing" });
+    expect(hit.players.P2.active).toBeNull();
+    expect(hit.phase.kind).toBe("awaitAttackSwitch");
+    const next = applyMove(hit, { type: "switchAfterAttack", benchIndex: 0 });
     expect(next.players.P1.active!.card.id).toBe(volkEx.id);
     expect(next.players.P1.points).toBe(1);
     expect(next.phase).toEqual({ kind: "awaitPromotion", player: "P2" });
@@ -110,7 +127,9 @@ describe("Volkanovski's switching and zone energy", () => {
     const state = battle();
     state.players.P1.hand = [];
     state.players.P1.pendingEnergy = null;
-    expect(chooseMove(state)).toEqual({ type: "attack", attackId: "crafty-kickboxing", targetUid: state.players.P1.bench[0]!.uid });
+    expect(chooseMove(state)).toEqual({ type: "attack", attackId: "crafty-kickboxing" });
+    const hit = applyMove(state, chooseMove(state));
+    expect(chooseMove(hit)).toEqual({ type: "switchAfterAttack", benchIndex: 0 });
   });
 
   it("Great Overhand accepts any three energies and an ex knockout awards two points", () => {

@@ -14,6 +14,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "packages/frontend/public/images/fighters"
 SLUGS = [
+    "chris-curtis", "marcin-tybura", "diego-lopes",
     "israel-adesanya", "paulo-costa", "conor-mcgregor", "sean-omalley",
     "joshua-van", "petr-yan", "justin-gaethje", "alexander-volkanovski",
     "benoit-saint-denis", "renato-moicano", "brandon-royval", "amir-albazi",

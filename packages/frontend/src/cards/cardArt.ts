@@ -11,6 +11,7 @@ export const ENERGY_COLOR: Record<EnergyType, string> = {
   lightning: "#f2c31c",
   psychic: "#b061e6",
   fighting: "#d0783a",
+  steel: "#8b9aa6",
   colorless: "#b6bccb",
 };
 
@@ -22,6 +23,7 @@ export const ENERGY_TINT: Record<EnergyType, string> = {
   lightning: "#ffe583",
   psychic: "#e0b6f7",
   fighting: "#f0c49a",
+  steel: "#dce5ec",
   colorless: "#e3e7ef",
 };
 
@@ -33,6 +35,7 @@ export const ENERGY_SYMBOL: Record<EnergyType, string> = {
   lightning: "⚡",
   psychic: "🔮",
   fighting: "✊",
+  steel: "⚙",
   colorless: "✦",
 };
 

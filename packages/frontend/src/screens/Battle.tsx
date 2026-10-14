@@ -13,7 +13,7 @@ import { useBattleStore, HUMAN, AI } from "../store/battleStore";
 import { useAppView } from "../navigation/useAppView";
 import { Card, EnergyPip, Pop } from "../cards/Card";
 import { useBattleEvents, type BattleEffects, type KoGhost } from "../animation/useBattleEvents";
-import { BattleLog, FighterDetails, Dialog } from "./BattleDialogs";
+import { BattleLog, FighterDetails, Dialog, ChooseActive } from "./BattleDialogs";
 import { EVENT_MS } from "../animation/timing";
 
 // ---------------------------------------------------------------------------
@@ -214,6 +214,7 @@ function Fighter({
         size="sm"
         damage={damage}
         paralyzed={c.paralyzed}
+        asleep={c.asleep}
         burned={c.burned}
         bleeding={c.bleeding}
         retreatCostIncrease={c.retreatCostIncrease}
@@ -664,6 +665,7 @@ export function Battle() {
   const ai = state.players[AI];
   const moves = humanMoves; // already empty while busy
   const mustPromote = state.phase.kind === "awaitPromotion" && state.phase.player === HUMAN;
+  const mustSwitch = state.phase.kind === "awaitAttackSwitch" && state.phase.player === HUMAN;
   const targetMoves = mustPromote && !busy ? moves.filter((move) => move.type === "promote")
     : targeting?.gameId === gameId && !busy
       ? moves.filter((move) => targeting.moves.some((candidate) => JSON.stringify(candidate) === JSON.stringify(move))) : [];
@@ -739,7 +741,7 @@ export function Battle() {
       {fx.coin && <div className="coin-flip" role="status" aria-live="polite">
         <div className="coin-flip__disc" key={fx.coin.key}>{fx.coin.result === "heads" ? "H" : "T"}</div>
         <strong>Flip {fx.coin.flip}: {fx.coin.result}</strong>
-        <span>{fx.coin.reason === "bleeding" ? `${fx.coin.attackName ?? "Attack"}: ${fx.coin.result === "heads" ? "Bleeding applied" : "No Bleeding"}` : fx.coin.reason === "burn" ? `Burn check: ${fx.coin.result === "tails" ? "Burn removed" : "Burn remains"}` : `${fx.coin.attackName ?? "Attack"} bonus: +${fx.coin.bonus} damage`}</span>
+        <span>{fx.coin.reason === "sleep" ? `Sleep check: ${fx.coin.result === "heads" ? "Fighter wakes up" : "Fighter remains asleep"}` : fx.coin.reason === "bleeding" ? `${fx.coin.attackName ?? "Attack"}: ${fx.coin.result === "heads" ? "Bleeding applied" : "No Bleeding"}` : fx.coin.reason === "burn" ? `Burn check: ${fx.coin.result === "tails" ? "Burn removed" : "Burn remains"}` : `${fx.coin.attackName ?? "Attack"} bonus: +${fx.coin.bonus} damage`}</span>
       </div>}
       {showPeek && peek.kind === "deckPeeked" && <Dialog title="Download · Opponent’s top card" onClose={() => setDismissedPeek({ gameId, index: peekIndex })}><div className="fighter-details__card"><Card card={peek.card} size="lg" /></div></Dialog>}
       {logOpen && <BattleLog key={gameId} lines={state.log} onClose={() => setLogOpen(false)} />}
@@ -809,7 +811,8 @@ export function Battle() {
       <Hand hand={human.hand} hidden={fx.hiddenDraws[HUMAN] ?? 0} dnd={dnd}
         onInspect={(card, handIndex) => { if (!targetingActive) setSelected({ card, handIndex, gameId }); }} />
 
-      {!targetingActive && selected && selectionValid && (
+      {mustSwitch && !busy && <ChooseActive bench={human.bench} moves={moves} onMove={performMove} attackSwitch />}
+      {!mustSwitch && !targetingActive && selected && selectionValid && (
         <FighterDetails key={selected.uid ?? `hand-${selected.handIndex}`} card={selectedFighter?.card ?? selected.card}
           fighter={selectedFighter} active={selectedActive} moves={selectedMoves} bench={human.bench}
           onMove={performMove} onClose={() => setSelected(null)} onChooseTargets={chooseTargets} />

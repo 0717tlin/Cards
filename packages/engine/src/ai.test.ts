@@ -79,7 +79,7 @@ describe("AI turn planning", () => {
   });
   it("promotes a ready fighter instead of an uncharged heavyweight", () => {
     const s = battle("merab", "brandon-royval");
-    const ready = toInPlay(CARD_POOL["islam-makhachev"]!); ready.attached = ["water", "colorless"];
+    const ready = toInPlay(CARD_POOL["islam-makhachev"]!); ready.attached = ["water", "colorless", "colorless"];
     s.players.P1.active = null;
     s.players.P1.bench = [toInPlay(CARD_POOL["tai-tuivasa"]!), ready];
     s.phase = { kind: "awaitPromotion", player: "P1" }; s.turnPlayer = "P2";
@@ -88,7 +88,7 @@ describe("AI turn planning", () => {
   it("benches Khabib to reduce the cost of a winning Koshi Guruma", () => {
     const s = battle("islam-makhachev", "brandon-royval");
     s.players.P2.active!.damage = 10;
-    s.players.P1.active!.attached = ["water"]; s.players.P1.points = 2;
+    s.players.P1.active!.attached = ["water", "colorless"]; s.players.P1.points = 2;
     s.players.P1.hand = [CARD_POOL["khabib-nurmagomedov"]!];
     const move = chooseMove(s);
     expect(move).toEqual({ type: "playBasic", handIndex: 0 });
@@ -96,7 +96,7 @@ describe("AI turn planning", () => {
     expect(applyMove(benched, chooseMove(benched)).winner).toBe("P1");
   });
   it("evolves before attacking with the stronger Identity", () => {
-    const s = battle("charles-oliveira"); s.players.P1.active!.attached = ["lightning"];
+    const s = battle("charles-oliveira"); s.players.P1.active!.attached = ["lightning", "lightning", "colorless"];
     s.players.P1.hand = [CARD_POOL["do-bronx"]!];
     expect(chooseMove(s)).toEqual({ type: "evolve", handIndex: 0, targetUid: s.players.P1.active!.uid });
   });

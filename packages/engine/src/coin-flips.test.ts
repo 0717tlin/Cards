@@ -32,7 +32,7 @@ describe("Blitz coin flips", () => {
     state.players.P1.active!.attached = [];
     expect(getLegalMoves(state)).not.toContainEqual({type:"attack", attackId:"blitz"});
     state.players.P1.active!.attached = ["grass"];
-    state.players.P2.active!.card.weakness = "colorless";
+    state.players.P2.active!.card.weakness = "steel";
     const next = applyMove(state, {type:"attack", attackId:"blitz"});
     expect(next.events.find(e => e.kind === "damageDealt")).toMatchObject({weakness:true});
     expect(next.players.P1.points).toBe(1);

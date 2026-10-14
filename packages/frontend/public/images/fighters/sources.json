@@ -183,5 +183,20 @@
     "file": "sean-strickland.webp",
     "profile": "https://www.ufc.com/athlete/sean-strickland",
     "image": "https://ufc.com/images/styles/athlete_bio_full_body/s3/2024-01/STRICKLAND_SEAN_L_BELT_01-20.png?itok=4lpTjgRZ"
+  },
+  "chris-curtis": {
+    "file": "chris-curtis.webp",
+    "profile": "https://www.ufc.com/athlete/chris-curtis",
+    "image": "https://ufc.com/images/styles/athlete_bio_full_body/s3/2026-03/CURTIS_CHRIS_L_03-14.png?itok=hDIZj-a7"
+  },
+  "marcin-tybura": {
+    "file": "marcin-tybura.webp",
+    "profile": "https://www.ufc.com/athlete/marcin-tybura",
+    "image": "https://ufc.com/images/styles/athlete_bio_full_body/s3/2026-03/TYBURA_MARCIN_L_03-28.png?itok=TNTDlOaO"
+  },
+  "diego-lopes": {
+    "file": "diego-lopes.webp",
+    "profile": "https://www.ufc.com/athlete/diego-lopes",
+    "image": "https://ufc.com/images/styles/athlete_bio_full_body/s3/2026-06/LOPES_DIEGO_L_06-14.png?itok=UQIuHbZC"
   }
 }

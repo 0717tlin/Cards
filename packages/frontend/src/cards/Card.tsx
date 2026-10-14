@@ -115,6 +115,7 @@ export interface CardProps {
   /** Battle overlays. */
   damage?: number;
   paralyzed?: boolean;
+  asleep?: boolean;
   burned?: boolean;
   bleeding?: boolean;
   retreatCostIncrease?: number;
@@ -169,6 +170,7 @@ function FighterCardView({
   size = "md",
   damage,
   paralyzed = false,
+  asleep = false,
   burned = false,
   bleeding = false,
   retreatCostIncrease = 0,
@@ -275,6 +277,7 @@ function FighterCardView({
       {bleeding && <p className="card__status" role="status">Bleeding: 10 damage each checkup; clears on the bench</p>}
       {burned && <p className="card__status" role="status">Burned: 20 damage each checkup; tails clears Burn</p>}
       {paralyzed && <p className="card__status" role="status">Paralyzed: Cannot attack or retreat this turn</p>}
+      {asleep && <p className="card__status" role="status">Asleep: Cannot attack or retreat; heads wakes up at checkup</p>}
       {retreatCostIncrease > 0 && <p className="card__status">Retreat +{retreatCostIncrease} Energy this turn</p>}
       {card.ability && (
         <div className="card__ability">

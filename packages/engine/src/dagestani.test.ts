@@ -4,7 +4,7 @@ import { toInPlay } from "./setup.js";
 import type { FighterCard } from "./types.js";
 
 const khabib = CARD_POOL["khabib-nurmagomedov"]!;
-const islam: FighterCard = { ...CARD_POOL["islam-makhachev"]!, stage: "basic", evolvesFrom: undefined,
+const islam: FighterCard = { ...CARD_POOL["islam-makhachev"]!, stage: "basic", evolvesFrom: undefined, ability: undefined,
   attacks: [{ id: "soto-gari", name: "Discard fixture", cost: ["water", "colorless"], damage: 50,
     effects: [{ kind: "discardSelfEnergy", amount: 1, unlessBenchCardId: "khabib-nurmagomedov" }] }],
 };

@@ -50,6 +50,11 @@ export function isWeakTo(attacker: FighterInPlay, defender: FighterInPlay, attac
   return defender.card.weakness === attacker.card.type && !attack?.effects?.some(effect => effect.kind === "ignoreWeakness");
 }
 
+export function passiveAttackDamageReduction(fighter: FighterInPlay): number {
+  const effect = fighter.card.ability?.effect;
+  return effect?.kind === "reduceAttackDamageTaken" ? effect.amount : 0;
+}
+
 /** Damage including weakness; random effects use expected damage for AI evaluation.
  * applyAttack replaces that expectation with seeded coin-flip results. */
 export function computeDamage(
@@ -87,6 +92,7 @@ export function computeDamage(
       case "discardAllSelfEnergy":
       case "increaseIncomingDamage":
       case "burn":
+      case "sleep":
       case "benchDamage":
       case "switchWithBench":
       case "increaseRetreatCost":
@@ -99,7 +105,7 @@ export function computeDamage(
   const ability = attacker.card.ability?.effect;
   const abilityBonus = opponentHasMorePoints && ability?.kind === "damageBonusWhenBehindOnPoints" ? ability.amount : 0;
   const weaknessBonus = attackDamage > 0 && isWeakTo(attacker, defender, attack) ? WEAKNESS_BONUS : 0;
-  const damage = Math.max(0, attackDamage + (attackDamage > 0 ? turnDamageBonus + abilityBonus + (defender.damageVulnerability?.amount ?? 0) : 0) + weaknessBonus - (defender.damageReduction ?? 0));
+  const damage = Math.max(0, attackDamage + (attackDamage > 0 ? turnDamageBonus + abilityBonus + (defender.damageVulnerability?.amount ?? 0) : 0) + weaknessBonus - (defender.damageReduction ?? 0) - passiveAttackDamageReduction(defender));
   return randomBonus === undefined && attack.effects?.some(effect => effect.kind === "coinAttackFailsOnTails") ? damage / 2 : damage;
 }
 

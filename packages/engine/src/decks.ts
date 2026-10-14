@@ -4,7 +4,7 @@ import { isFighterCard, type EnergyType } from "./types.js";
 export const DECK_SIZE = 20;
 export const COPY_LIMIT = 2;
 export type DeckSelection = Record<string, number>;
-export const DECK_ENERGY_TYPES: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting"];
+export const DECK_ENERGY_TYPES: EnergyType[] = ["fire", "water", "grass", "lightning", "psychic", "fighting", "steel"];
 export interface SharedDeck { name: string; selection: DeckSelection; energyTypes: EnergyType[] }
 
 export function validateDeckSelection(selection: DeckSelection) {

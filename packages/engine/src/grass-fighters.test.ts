@@ -100,7 +100,10 @@ describe("Feint and Suga", () => {
     state = applyMove(state, { type: "evolve", handIndex: 0, targetUid: activeUid });
     state = applyMove(state, { type: "attachEnergy", targetUid: activeUid });
     const incomingUid = state.players.P1.bench[0]!.uid;
-    state = applyMove(state, { type: "attack", attackId: "suga-switch-kick", targetUid: incomingUid });
+    state = applyMove(state, { type: "attack", attackId: "suga-switch-kick" });
+    expect(state.players.P2.active!.damage).toBe(90);
+    expect(state.players.P1.active!.uid).toBe(activeUid);
+    state = applyMove(state, { type: "switchAfterAttack", benchIndex: 0 });
     expect(state.players.P2.active).toMatchObject({ uid: targetUid, damage: 90 });
     expect(state.players.P2.active!.damageVulnerability).toBeUndefined();
     expect(state.players.P1.active!.uid).toBe(incomingUid);

@@ -9,6 +9,7 @@ export type EnergyType =
   | "lightning"
   | "psychic"
   | "fighting"
+  | "steel"
   | "colorless";
 
 export type Stage = "basic" | "stage1" | "stage2";
@@ -25,6 +26,7 @@ export type AttackEffect = {
   | { kind: "increaseRetreatCost"; amount: number }
   | { kind: "paralyzeAtOrBelowHp"; hp: number }
   | { kind: "burn" }
+  | { kind: "sleep" }
   | { kind: "coinBleed" }
   | { kind: "ignoreWeakness" }
   | { kind: "preventRetreat" }
@@ -58,6 +60,8 @@ export interface AbilityDef {
     | { kind: "attackTwice" }
     | { kind: "useNonExBenchAttacks" }
     | { kind: "reduceNamedAttackCost"; names: string[] }
+    | { kind: "preventOpponentRetreat" }
+    | { kind: "reduceAttackDamageTaken"; amount: number }
     | { kind: "damageBonusWhenBehindOnPoints"; amount: number }
     | { kind: "peekOpponentDeck" }
     | { kind: "attachZoneEnergyOnBecomingActive" }
@@ -126,6 +130,7 @@ export interface FighterInPlay {
   damageReduction?: number;
   damageVulnerability?: { amount: number; expiresAfterTurn: number };
   paralyzed?: boolean;
+  asleep?: boolean;
   cannotRetreat?: boolean;
   burned?: boolean;
   bleeding?: boolean;
@@ -167,6 +172,7 @@ export interface PlayerState {
 
 export type Phase =
   | { kind: "main" }
+  | { kind: "awaitAttackSwitch"; player: PlayerId; continues: boolean }
   | { kind: "awaitPromotion"; player: PlayerId };
 
 /**
@@ -196,7 +202,7 @@ export type BattleEvent =
   | { kind: "switched"; player: PlayerId; outUid: string; inUid: string }
   | { kind: "promoted"; player: PlayerId; uid: string }
   | { kind: "attackUsed"; player: PlayerId; attackerUid: string; attackId: string; targetUid: string }
-  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number; attackName?: string; reason?: "burn" | "bleeding" }
+  | { kind: "coinFlipped"; player: PlayerId; result: "heads" | "tails"; flip: number; bonus: number; attackName?: string; reason?: "burn" | "bleeding" | "sleep" }
   | { kind: "damageDealt"; player: PlayerId; uid: string; amount: number; weakness: boolean }
   | { kind: "knockedOut"; player: PlayerId; fighter: FighterInPlay; pointsAwarded: number; fromBench?: boolean }
   | { kind: "energyDiscarded"; player: PlayerId; energy: EnergyType }
@@ -225,7 +231,8 @@ export type Move =
   | { type: "retreat"; benchIndex: number }
   | { type: "attack"; attackId: string; targetUid?: string }
   | { type: "pass" }
-  | { type: "promote"; benchIndex: number };
+  | { type: "promote"; benchIndex: number }
+  | { type: "switchAfterAttack"; benchIndex: number };
 
 export interface BattleConfig {
   seed: number;

@@ -15,6 +15,22 @@ function fighter(c: Omit<FighterCard, "stage" | "art"> & Partial<Pick<FighterCar
 // --- Card pool -------------------------------------------------------------
 
 export const CARD_POOL: Record<string, FighterCard> = {
+  "diego-lopes": fighter({
+    id: "diego-lopes", name: "Diego Lopes", type: "steel", hp: 90,
+    weakness: "fire", isEx: false, retreatCost: 2, rarity: "rare",
+    ability: { name: "Granite Chin", text: "This fighter takes 10 less damage from attacks.", effect: { kind: "reduceAttackDamageTaken", amount: 10 } },
+    attacks: [{ id: "lopes-uppercut", name: "Uppercut", cost: ["steel", "colorless"], damage: 40 }],
+  }),
+  "chris-curtis": fighter({
+    id: "chris-curtis", name: "Chris Curtis", type: "steel", hp: 100,
+    weakness: "fire", isEx: false, retreatCost: 2, rarity: "common",
+    attacks: [{ id: "curtis-cross", name: "Cross", cost: ["steel", "colorless"], damage: 40 }],
+  }),
+  "marcin-tybura": fighter({
+    id: "marcin-tybura", name: "Marcin Tybura", type: "steel", hp: 140,
+    weakness: "fire", isEx: false, retreatCost: 3, rarity: "common",
+    attacks: [{ id: "tybura-heavy-cross", name: "Heavy Cross", cost: ["steel", "colorless", "colorless"], damage: 60 }],
+  }),
   "sean-strickland": fighter({
     id: "sean-strickland", name: "Sean Strickland", hp: 60, type: "colorless", weakness: "fighting", isEx: false,
     rarity: "common", retreatCost: 1, stageLabel: "Prospect",
@@ -285,16 +301,14 @@ export const CARD_POOL: Record<string, FighterCard> = {
   "islam-makhachev-contender": fighter({
     id: "islam-makhachev-contender", name: "Islam Makhachev", type: "water", hp: 90, weakness: "lightning", isEx: false,
     rarity: "uncommon", retreatCost: 1, stage: "stage1", stageLabel: "Contender", evolvesFrom: "islam-makhachev-prospect", art: "islam-makhachev",
-    attacks: [{ id: "soto-gari", name: "Soto Gari", cost: ["water", "colorless"], damage: 40 }],
+    attacks: [{ id: "islam-contender-calf-kick", name: "Calf Kick", cost: ["water", "colorless"], damage: 40 }],
   }),
   "islam-makhachev": fighter({
     id: "islam-makhachev", name: "Islam Makhachev", type: "water", hp: 140,
     rarity: "rare",
     weakness: "lightning", isEx: false, retreatCost: 2, stage: "stage2", stageLabel: "Champion", evolvesFrom: "islam-makhachev-contender",
-    attacks: [{ id: "koshi-guruma", name: "Koshi Guruma", cost: ["water", "colorless"], damage: 80,
-      effects: [{ kind: "preventRetreat" }],
-      text: "The defending fighter can't retreat during your opponent's next turn.",
-    }],
+    ability: { name: "Ground Control", text: "As long as this fighter is in the active spot, your opponent's active fighter can't retreat.", effect: { kind: "preventOpponentRetreat" } },
+    attacks: [{ id: "koshi-guruma", name: "Koshi Guruma", cost: ["water", "colorless", "colorless"], damage: 100 }],
   }),
   "umar-nurmagomedov": fighter({
     id: "umar-nurmagomedov", name: "Umar Nurmagomedov", type: "water", hp: 60,
@@ -325,10 +339,9 @@ export const CARD_POOL: Record<string, FighterCard> = {
     id: "do-bronx", name: "Do Bronx", type: "lightning", hp: 120,
     weakness: "fighting", isEx: false, retreatCost: 1, rarity: "rare", stage: "stage1", evolvesFrom: "charles-oliveira",
     attacks: [
-      { id: "calf-kick", name: "Calf Kick", cost: ["lightning"], damage: 40 },
-      { id: "rear-naked-choke", name: "Rear-Naked Choke", cost: ["lightning", "lightning", "colorless"], damage: 60,
-        effects: [{ kind: "coinDamageBonus", amount: 50 }],
-        text: "Flip a coin. If heads, this attack does 50 more damage.",
+      { id: "rear-naked-choke", name: "Rear-Naked Choke", cost: ["lightning", "lightning", "colorless"], damage: 70,
+        effects: [{ kind: "sleep" }],
+        text: "The defending fighter is now Asleep.",
       },
     ],
   }),
@@ -341,12 +354,12 @@ export const CARD_POOL: Record<string, FighterCard> = {
     id: "anshul-jubli", name: "Anshul Jubli", type: "grass", hp: 60,
     weakness: "fire", isEx: false, retreatCost: 1,
     attacks: [
-      { id: "do-not-redeem", name: "DO NOT REDEEM!!!", cost: ["colorless", "colorless"], damage: 20 },
+      { id: "do-not-redeem", name: "DO NOT REDEEM!!!", cost: ["grass", "colorless"], damage: 20 },
     ],
   }),
   "tommy-mcmillan": fighter({
-    id: "tommy-mcmillan", name: "Tommy McMillan", type: "colorless", hp: 80,
-    weakness: "fighting", isEx: false, retreatCost: 1,
+    id: "tommy-mcmillan", name: "Tommy McMillan", type: "steel", hp: 80,
+    weakness: "fire", isEx: false, retreatCost: 1,
     attacks: [{ id: "blitz", name: "Blitz", cost: ["colorless"], damage: 10,
       effects: [{ kind: "flipUntilTails", amount: 10 }],
       text: "Flip a coin until you get tails. This attack does 10 more damage for each heads.",
@@ -417,7 +430,7 @@ export function getFighterStageLabel(card: FighterCard): string {
 }
 
 export const TRAINER_POOL: Record<string, TrainerCard> = {
-  "fathers-plan": { id: "fathers-plan", name: "Father's Plan", kind: "item", rarity: "uncommon", art: "khabib-nurmagomedov", text: "Choose a non-ex fighter named Islam Makhachev or Umar Nurmagomedov from your deck and put it on top of your deck.", effect: { kind: "searchNamedFighterToTop", names: ["Islam Makhachev", "Umar Nurmagomedov"] } },
+  "fathers-plan": { id: "fathers-plan", name: "Father's Plan", kind: "item", rarity: "uncommon", art: "khabib-nurmagomedov", text: "Choose a non-ex fighter named Khabib Nurmagomedov, Islam Makhachev, or Umar Nurmagomedov from your deck and put it on top of your deck.", effect: { kind: "searchNamedFighterToTop", names: ["Khabib Nurmagomedov", "Islam Makhachev", "Umar Nurmagomedov"] } },
   "ali-abdelaziz": { id: "ali-abdelaziz", name: "Ali Abdelaziz", kind: "supporter", rarity: "uncommon", text: "Choose a fighter on your opponent's bench that has taken damage and switch it with their active fighter.", effect: { kind: "switchDamagedOpponentBench" } },
   "herb-dean": { id: "herb-dean", name: "Herb Dean", kind: "supporter", rarity: "common", text: "During this turn, your fighters' attacks do 10 more damage to your opponent's active fighter.", effect: { kind: "boostActiveAttackDamage", amount: 10 } },
   "fight-contract": { id: "fight-contract", name: "Fight Contract", kind: "item", rarity: "common", text: "Put a random Basic or Prospect fighter from your deck into your hand. Then shuffle your deck.", effect: { kind: "searchRandomBasic" } },
