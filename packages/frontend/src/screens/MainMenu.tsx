@@ -2,6 +2,7 @@ import { motion, type Variants } from "motion/react";
 import { CARD_POOL, ALL_CARD_POOL, type FighterCard } from "@card-game/engine";
 import { Card } from "../cards/Card";
 import { useAppView } from "../navigation/useAppView";
+import { useOnlineSession } from "../multiplayer/onlineSession";
 
 /** Decorative fan of cards shown behind the title. */
 const FAN: FighterCard[] = [CARD_POOL["islam-makhachev-ex"]!, CARD_POOL["do-bronx"]!, CARD_POOL["ilia-topuria"]!];
@@ -25,7 +26,7 @@ export function MainMenu() {
   const setView = useAppView((s) => s.setView);
 
   function startNewGame() {
-    setView("deckSelection");
+    setView(useOnlineSession.getState().room ? "online" : "deckSelection");
   }
 
   const hover = { y: -2 };
@@ -48,11 +49,14 @@ export function MainMenu() {
           Card Battle
         </motion.h1>
         <motion.p className="menu__tagline" variants={rise}>
-          Build a deck. Battle the AI.
+          Build a deck. Battle a friend or the AI.
         </motion.p>
       </div>
 
       <div className="menu__actions">
+        <motion.button className="menu__btn menu__btn--primary" onClick={() => setView("online")} variants={rise} whileHover={hover} whileTap={tap}>
+          <span className="menu__btn-icon">🌐</span><span className="menu__btn-text"><strong>Play Online</strong><small>Private rooms with a friend</small></span>
+        </motion.button>
         <motion.button className="menu__btn" onClick={() => setView("packs")} variants={rise} whileHover={hover} whileTap={tap}>
           <span className="menu__btn-icon">🎁</span>
           <span className="menu__btn-text"><strong>Open a Pack</strong><small>Reveal five random cards</small></span>

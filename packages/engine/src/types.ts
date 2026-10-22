@@ -206,7 +206,7 @@ export type BattleEvent =
   | { kind: "damageDealt"; player: PlayerId; uid: string; amount: number; weakness: boolean }
   | { kind: "knockedOut"; player: PlayerId; fighter: FighterInPlay; pointsAwarded: number; fromBench?: boolean }
   | { kind: "energyDiscarded"; player: PlayerId; energy: EnergyType }
-  | { kind: "gameWon"; player: PlayerId; reason: "points" | "noFighters" };
+  | { kind: "gameWon"; player: PlayerId; reason: "points" | "noFighters" | "concession" };
 
 export interface BattleState {
   players: Record<PlayerId, PlayerState>;

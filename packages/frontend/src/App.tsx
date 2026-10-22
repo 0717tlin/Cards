@@ -9,12 +9,16 @@ import { DeckSelection } from "./screens/DeckSelection";
 import { useBattleStore } from "./store/battleStore";
 import { SCREEN_TRANSITION_MS } from "./animation/timing";
 import "./styles.css";
+import { useEffect } from "react";
+import { OnlineLobby } from "./screens/OnlineLobby";
+import { restoreOnlineSession } from "./multiplayer/onlineSession";
 
 const NAV: { id: AppView; label: string; icon: string }[] = [
   { id: "menu", label: "Home", icon: "🏠" },
   { id: "viewer", label: "Cards", icon: "🃏" },
   { id: "builder", label: "Decks", icon: "🛠️" },
   { id: "battle", label: "Battle", icon: "⚔️" },
+  { id: "online", label: "Online", icon: "🌐" },
 ];
 
 const TITLES: Record<Exclude<AppView, "menu">, string> = {
@@ -23,6 +27,7 @@ const TITLES: Record<Exclude<AppView, "menu">, string> = {
   battle: "Battle",
   packs: "Pack Opening",
   deckSelection: "Deck Selection",
+  online: "Private Rooms",
 };
 
 // "wait" mode plays exit then enter, so each half gets about half the budget.
@@ -35,6 +40,7 @@ const screenMotion = {
 
 function Screen({ view }: { view: Exclude<AppView, "menu"> }) {
   const gameId = useBattleStore((store) => store.gameId);
+  if (view === "online") return <OnlineLobby />;
   if (view === "deckSelection") return <DeckSelection />;
   if (view === "packs") return <PackOpening />;
   if (view === "viewer") return <CardViewer />;
@@ -43,6 +49,7 @@ function Screen({ view }: { view: Exclude<AppView, "menu"> }) {
 }
 
 export function App() {
+  useEffect(() => { restoreOnlineSession(); }, [restoreOnlineSession]);
   const view = useAppView((s) => s.view);
   const setView = useAppView((s) => s.setView);
 

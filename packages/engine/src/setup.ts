@@ -14,6 +14,18 @@ import { nextInt, shuffle } from "./rng.js";
 import { beginTurn } from "./turn.js";
 
 let uidCounter = 0;
+/** Reserve identifiers before continuing a battle restored by a server. */
+export function reserveFighterUids(state: BattleState): void {
+  const uids = Object.values(state.players).flatMap(player => [player.active, ...player.bench].flatMap(fighter => fighter ? [fighter.uid] : []));
+  for (const event of state.events) {
+    for (const value of Object.values(event)) if (typeof value === "string") uids.push(value);
+    if (event.kind === "knockedOut") uids.push(event.fighter.uid);
+  }
+  for (const uid of uids) {
+    const number = Number(/#(\d+)$/.exec(uid)?.[1] ?? 0);
+    if (Number.isSafeInteger(number)) uidCounter = Math.max(uidCounter, number);
+  }
+}
 /** Instance uid. Deterministic within a process run; unique per fighter instance. */
 export function makeUid(cardId: string): string {
   uidCounter += 1;
