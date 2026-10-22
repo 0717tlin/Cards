@@ -2,6 +2,10 @@
 
 ## General
 
+- Online matches use the server-owned engine through `/api/multiplayer` WebSockets. Never trust client state, deck definitions, seeds, player IDs, or claimed damage. Resolve submitted moves against the authenticated seat and current server revision. Persist accepted moves before acknowledging them and deduplicate request IDs across reconnects/restarts.
+- Network views must pass through `roomPrivacy.ts`: viewer maps to P1; hide the opponent hand, both deck orders, RNG, private peeks and raw engine logs. The frontend uses server-supplied legal moves in online mode and never runs the AI or applies moves locally. Keep offline AI play functional.
+- Browser reconnect credentials are separate from shared room codes. Pause actions when either guest disconnects; resume from a fresh authoritative snapshot. Persisted rooms reserve existing fighter UIDs before the engine continues.
+
 - TypeScript strict mode. No `any` unless justified with a comment. Prefer precise types and discriminated unions.
 - Prefer pure functions and immutable updates in the engine. Functions that apply a move return a new state rather than mutating in place (or mutate a draft that is clearly scoped). Never mutate shared state passed by the caller.
 - Name things by domain terms (see game-glossary.md), not by implementation detail.

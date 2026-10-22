@@ -4,7 +4,8 @@ export const ENGINE_VERSION = "0.3.0";
 
 export * from "./types.js";
 export * from "./decks.js";
-export { createBattle } from "./setup.js";
+export * from "./multiplayer.js";
+export { createBattle, reserveFighterUids } from "./setup.js";
 export { getLegalMoves, applyMove, actingPlayer, getRetreatCost } from "./moves.js";
 export { getWinner } from "./winner.js";
 export { chooseMove } from "./ai.js";

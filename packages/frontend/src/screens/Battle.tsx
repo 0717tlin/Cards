@@ -15,6 +15,7 @@ import { Card, EnergyPip, Pop } from "../cards/Card";
 import { useBattleEvents, type BattleEffects, type KoGhost } from "../animation/useBattleEvents";
 import { BattleLog, FighterDetails, Dialog, ChooseActive } from "./BattleDialogs";
 import { EVENT_MS } from "../animation/timing";
+import { useOnlineSession } from "../multiplayer/onlineSession";
 
 // ---------------------------------------------------------------------------
 // Drag & drop model
@@ -376,6 +377,7 @@ function ActiveRow({
 }
 
 function OpponentZone({
+  name = "Opponent (AI)",
   player,
   isTurn,
   fx,
@@ -383,6 +385,7 @@ function OpponentZone({
   onInspectDiscard,
   onInspect,
 }: {
+  name?: string;
   player: PlayerState;
   isTurn: boolean;
   onInspect: (fighter: FighterInPlay) => void;
@@ -395,7 +398,7 @@ function OpponentZone({
   return (
     <section className={`pzone pzone--opponent${isTurn ? " pzone--turn" : ""}`}>
       <div className="pzone__head">
-        <h3>Opponent (AI)</h3>
+        <h3>{name}</h3>
         <span className="hand-count" aria-label={`${player.hand.length - (fx.hiddenDraws[player.id] ?? 0)} cards in opponent's hand`}>
           Hand <strong>{player.hand.length - (fx.hiddenDraws[player.id] ?? 0)}</strong>
         </span>
@@ -640,6 +643,11 @@ function statusHint(opts: {
 }
 
 export function Battle() {
+  const online = useBattleStore(store => store.mode === "online");
+  const room = useOnlineSession(store => store.room);
+  const connection = useOnlineSession(store => store.status);
+  const onlineError = useBattleStore(store => store.onlineError);
+  const otherGuest = room?.players[room.seat === "P1" ? "P2" : "P1"];
   const state = useBattleStore((st) => st.state);
   const humanMoves = useBattleStore((st) => st.humanMoves);
   const busy = useBattleStore((st) => st.busy);
@@ -658,7 +666,7 @@ export function Battle() {
   let peekIndex = -1;
   state.events.forEach((event, index) => { if (event.kind === "deckPeeked" && event.player === HUMAN) peekIndex = index; });
   const peek = state.events[peekIndex];
-  const showPeek = !busy && peek?.kind === "deckPeeked" && (dismissedPeek?.gameId !== gameId || dismissedPeek.index !== peekIndex);
+  const showPeek = !busy && peekIndex >= batchStart && peek?.kind === "deckPeeked" && (dismissedPeek?.gameId !== gameId || dismissedPeek.index !== peekIndex);
   const [targeting, setTargeting] = useState<{ gameId: number; label: string; moves: Move[] } | null>(null);
 
   const human = state.players[HUMAN];
@@ -758,8 +766,8 @@ export function Battle() {
           >
             {state.winner === HUMAN ? "You win! 🎉" : "You lose."}
             <div className="banner__actions">
-              <button className="btn btn--new" onClick={() => setView("deckSelection")}>
-                Play again
+              <button className="btn btn--new" onClick={() => setView(online ? "online" : "deckSelection")}>
+                {online ? "Room" : "Play again"}
               </button>
               <button className="btn" onClick={() => setView("builder")}>
                 Edit deck
@@ -770,6 +778,7 @@ export function Battle() {
       </AnimatePresence>
 
       <OpponentZone
+        name={online ? otherGuest?.name ?? "Opponent" : undefined}
         player={ai}
         isTurn={state.turnPlayer === AI}
         fx={fx}
@@ -779,9 +788,10 @@ export function Battle() {
       />
 
       <aside className="battle-controls">
+        {online && <div className="online-battle-status" role="status"><strong>Room {room?.code}</strong><span>{state.winner ? "Match complete" : connection !== "connected" ? "Reconnecting…" : !otherGuest?.connected ? "Waiting for your opponent to reconnect…" : "Connected"}</span>{onlineError && <span className="warn small">{onlineError}</span>}</div>}
         <div className="battle-controls__turn">Turn {state.turnNumber}</div>
         <button className="btn btn--sm" onClick={() => setLogOpen(true)}>Battle log</button>
-        <button className="btn btn--sm" onClick={() => { setTargeting(null); setView("deckSelection"); }}>New game</button>
+        <button className="btn btn--sm" onClick={() => { setTargeting(null); setView(online ? "online" : "deckSelection"); }}>{online ? "Room / Leave" : "New game"}</button>
         <p className="battle__hint" aria-live="polite">{targetingActive ? mustPromote ? "Choose a highlighted benched fighter as your new active." : `${targeting?.label}: choose a highlighted fighter.` : hint}
           {targetingActive && !mustPromote && <button className="btn btn--sm" onClick={() => setTargeting(null)}>Cancel</button>}
         </p>

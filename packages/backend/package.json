@@ -11,13 +11,15 @@
   },
   "dependencies": {
     "@card-game/engine": "*",
+    "cors": "^2.8.5",
     "express": "^4.21.0",
-    "cors": "^2.8.5"
+    "ws": "^8.22.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
     "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

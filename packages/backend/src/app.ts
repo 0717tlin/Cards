@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import { ENGINE_VERSION, readSharedDeck } from "@card-game/engine";
 import { DeckCodeStore, DECK_CODE_PATTERN } from "./deckCodes.js";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 export function createApp(store = new DeckCodeStore()) {
   const app = express();
@@ -25,5 +27,11 @@ export function createApp(store = new DeckCodeStore()) {
       res.json({ deck });
     } catch (error) { console.error("Deck code lookup failed:", error); res.status(503).json({ error: "Couldn't load this deck. Please try again." }); }
   });
+  app.use("/api", (_req, res) => { res.status(404).json({ error: "API route not found." }); });
+  const frontend = fileURLToPath(new URL("../../frontend/dist/", import.meta.url));
+  if (existsSync(`${frontend}/index.html`)) {
+    app.use(express.static(frontend));
+    app.get("*", (_req, res) => res.sendFile(`${frontend}/index.html`));
+  }
   return app;
 }

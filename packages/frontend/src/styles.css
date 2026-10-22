@@ -122,6 +122,29 @@ body {
   border-top: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
+
+/* Private rooms */
+.online-lobby { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+.online-lobby__intro { margin-bottom: 24px; }
+.online-lobby__intro h1 { font-size: clamp(24px, 4vw, 36px); margin: 10px 0; }
+.online-lobby__intro p { max-width: 560px; color: var(--ink-soft); line-height: 1.6; }
+.online-lobby__eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .16em; color: #258d95; }
+.online-panel { display: grid; gap: 14px; padding: 24px; border: 1px solid var(--border); border-radius: 20px; background: rgba(255,255,255,.88); box-shadow: var(--shadow-sm); }
+.online-panel label { font-weight: 700; }
+.online-panel input, .online-panel select { min-height: 46px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: white; color: var(--ink); font: inherit; width: 100%; }
+.online-panel__divider { text-align: center; color: var(--ink-soft); padding: 12px 0; border-top: 1px solid var(--border); margin-top: 6px; }
+.online-code-input { font-family: monospace !important; letter-spacing: .2em; text-transform: uppercase; }
+.online-room-code { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.online-room-code > strong { font: 800 30px monospace; letter-spacing: .12em; }
+.online-guests { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 8px 0; }
+.online-guests > div { display: flex; flex-direction: column; gap: 7px; padding: 16px; border-radius: 12px; background: #edf8f9; overflow-wrap: anywhere; }
+.online-guests span { color: var(--ink-soft); font-size: 13px; }
+.online-guests small { font-weight: 400; }
+.online-message { border-radius: 10px; background: #e5f5f6; padding: 12px 16px; }
+.online-message--error { background: #fff0eb; color: #98402b; }
+.online-confirm { display: flex; justify-content: flex-end; gap: 10px; }
+.online-battle-status { display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.4; max-width: 210px; }
+@media (max-width: 480px) { .online-lobby { padding: 16px 10px 24px; } .online-panel { padding: 16px; } .online-guests { grid-template-columns: 1fr; } }
 .tab {
   border: none;
   background: transparent;
